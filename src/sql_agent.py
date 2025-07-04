@@ -273,7 +273,7 @@ class SQLAgent:
             # Obtener estructura completa
             structure = self.explorer.get_table_structure(
                 best_match['table_name'],
-                best_match['schema']
+                best_match['schema_name']
             )
 
             return structure
