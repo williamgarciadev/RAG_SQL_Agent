@@ -140,7 +140,7 @@ class DatabaseExplorer:
         if not self.connection and not self.connect():
             return None
         
-        # Query para obtener estructura completa
+        # Query para obtener estructura completa con descripciones
         structure_query = f"""
         SELECT 
             c.COLUMN_NAME as name,
@@ -159,7 +159,8 @@ class DatabaseExplorer:
             CASE 
                 WHEN pk.COLUMN_NAME IS NOT NULL THEN 'YES'
                 ELSE 'NO'
-            END as is_primary_key
+            END as is_primary_key,
+            ISNULL(CAST(ep.value AS NVARCHAR(MAX)), '') as description
         FROM INFORMATION_SCHEMA.COLUMNS c
         LEFT JOIN (
             SELECT ku.COLUMN_NAME
@@ -170,6 +171,9 @@ class DatabaseExplorer:
             AND tc.TABLE_SCHEMA = '{schema}'
             AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
         ) pk ON c.COLUMN_NAME = pk.COLUMN_NAME
+        LEFT JOIN sys.extended_properties ep ON ep.major_id = OBJECT_ID('{schema}.{table_name}')
+            AND ep.minor_id = c.ORDINAL_POSITION
+            AND ep.name = 'MS_Description'
         WHERE c.TABLE_NAME = '{table_name}'
         AND c.TABLE_SCHEMA = '{schema}'
         ORDER BY c.ORDINAL_POSITION
@@ -291,7 +295,8 @@ def search_fsd601():
                 print(f"\n📋 Campos (primeros 10):")
                 for col in structure['columns'][:10]:
                     pk_indicator = " 🔑" if col['is_primary_key'] == 'YES' else ""
-                    print(f"   • {col['name']}: {col['full_type']}{pk_indicator}")
+                    description = f" - {col['description']}" if col['description'] else ""
+                    print(f"   • {col['name']}: {col['full_type']}{pk_indicator}{description}")
                 
                 if len(structure['columns']) > 10:
                     print(f"   ... y {len(structure['columns']) - 10} campos más")

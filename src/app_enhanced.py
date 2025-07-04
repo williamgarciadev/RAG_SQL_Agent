@@ -79,6 +79,16 @@ def load_database_explorer():
         st.error("❌ No se pudo cargar DatabaseExplorer")
         return None
 
+@st.cache_resource
+def load_rag_director():
+    """Cargar el director RAG"""
+    try:
+        from agent_director import AgentDirector
+        return AgentDirector()
+    except ImportError as e:
+        st.error(f"❌ No se pudo cargar AgentDirector: {e}")
+        return None
+
 def test_connection():
     """Probar conexión a la base de datos"""
     try:
@@ -102,6 +112,36 @@ with st.sidebar:
                 st.success(message)
             else:
                 st.error(message)
+    
+    # Estado del sistema RAG
+    st.markdown("### 🤖 Sistema RAG")
+    
+    try:
+        director = load_rag_director()
+        if director:
+            st.success("✅ Director RAG: Activo")
+            
+            # Mostrar estadísticas del director
+            stats = director.get_director_stats()
+            if stats:
+                st.metric("Consultas Procesadas", stats.get('total_queries', 0))
+                st.metric("Consultas SQL", stats.get('sql_queries_routed', 0))
+                st.metric("Consultas Docs", stats.get('docs_queries_routed', 0))
+            
+            # Estado de agentes
+            if hasattr(director, 'sql_agent') and director.sql_agent:
+                st.text("🗄️ SQL Agent: Activo")
+            else:
+                st.text("❌ SQL Agent: Inactivo")
+            
+            if hasattr(director, 'docs_agent') and director.docs_agent:
+                st.text("📚 Docs Agent: Activo")
+            else:
+                st.text("❌ Docs Agent: Inactivo")
+        else:
+            st.error("❌ Director RAG: Inactivo")
+    except Exception as e:
+        st.error(f"❌ Error RAG: {str(e)[:50]}...")
     
     st.markdown("---")
     
@@ -202,7 +242,8 @@ with tab1:
                                                 'Tipo': col['full_type'],
                                                 'Nullable': col['is_nullable'],
                                                 'PK': '🔑' if col['is_primary_key'] == 'YES' else '',
-                                                'Posición': col['ordinal_position']
+                                                'Posición': col['ordinal_position'],
+                                                'Descripción': col.get('description', '')
                                             })
                                         
                                         df_columns = pd.DataFrame(columns_data)
@@ -308,31 +349,146 @@ with tab2:
 with tab3:
     st.header("🧠 Consultas RAG Inteligentes")
     
+    # Ejemplos de consultas
+    with st.expander("📋 Ejemplos de Consultas", expanded=False):
+        st.markdown("""
+        **Consultas SQL:**
+        - `SELECT * FROM FSD601 WHERE cliente_id = 12345`
+        - `Mostrar estructura de tabla FST001`
+        - `Generar consulta SQL para obtener datos de clientes`
+        
+        **Consultas de Documentación:**
+        - `Cómo configurar GeneXus para Bantotal`
+        - `Manual de instalación de Bantotal`
+        - `Procedimiento para crear transacciones`
+        
+        **Consultas Mixtas:**
+        - `SQL para obtener clientes y documentación de proceso`
+        - `Estructura de FSD601 y cómo usar en GeneXus`
+        """)
+    
     query_input = st.text_area(
         "💬 Ingresa tu consulta:", 
         placeholder="Ej: SELECT de FSD601 con relaciones usando claves primarias",
         height=100
     )
     
-    col1, col2 = st.columns([1, 3])
+    col1, col2, col3 = st.columns([1, 1, 2])
     
     with col1:
-        if st.button("🚀 Ejecutar Consulta", type="primary"):
-            if query_input:
-                with st.spinner("Procesando consulta..."):
-                    try:
-                        # Aquí iría la integración con el sistema RAG
-                        st.info("🔄 Funcionalidad RAG en desarrollo")
-                        st.code(f"# Tu consulta:\n{query_input}", language="python")
+        execute_button = st.button("🚀 Ejecutar Consulta", type="primary")
+    
+    with col2:
+        show_routing = st.checkbox("📊 Mostrar Routing", value=True)
+    
+    # Botones de consulta rápida
+    st.markdown("### 🚀 Consultas Rápidas")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("📊 Análisis FSD601"):
+            st.session_state.quick_query = "Mostrar estructura de tabla FSD601 con todas sus claves primarias y relaciones"
+    
+    with col2:
+        if st.button("🔍 Buscar Clientes"):
+            st.session_state.quick_query = "SELECT * FROM tablas de clientes con sus datos principales"
+    
+    with col3:
+        if st.button("📚 Manual GeneXus"):
+            st.session_state.quick_query = "Cómo configurar GeneXus para trabajar con Bantotal"
+    
+    # Aplicar consulta rápida si existe
+    if hasattr(st.session_state, 'quick_query') and st.session_state.quick_query:
+        query_input = st.session_state.quick_query
+        st.session_state.quick_query = None
+    
+    if execute_button and query_input:
+        with st.spinner("Procesando consulta con sistema RAG..."):
+            try:
+                # Cargar director RAG
+                director = load_rag_director()
+                
+                if director:
+                    # Procesar consulta
+                    start_time = time.time()
+                    result = director.process_query(query_input)
+                    processing_time = time.time() - start_time
+                    
+                    if result:
+                        # Mostrar información de routing si está habilitado
+                        if show_routing and 'routing_info' in result:
+                            routing_info = result['routing_info']
+                            
+                            col1, col2, col3 = st.columns(3)
+                            
+                            with col1:
+                                st.metric("Agente Usado", routing_info.get('selected_agent', 'N/A'))
+                            
+                            with col2:
+                                st.metric("Confianza", f"{routing_info.get('confidence', 0):.2f}")
+                            
+                            with col3:
+                                st.metric("Tiempo (s)", f"{processing_time:.2f}")
                         
-                        # Simulación de respuesta
-                        st.markdown("**Respuesta simulada:**")
-                        st.success("Esta sería la respuesta del sistema RAG basada en tu consulta.")
+                        # Mostrar respuesta principal
+                        st.markdown("### 🎯 Respuesta del Sistema RAG")
                         
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
-            else:
-                st.warning("Por favor ingresa una consulta")
+                        if 'sql_response' in result:
+                            st.markdown("**🗄️ Respuesta SQL:**")
+                            st.code(result['sql_response'], language="sql")
+                        
+                        if 'docs_response' in result:
+                            st.markdown("**📚 Respuesta Documentación:**")
+                            st.markdown(result['docs_response'])
+                        
+                        if 'combined_response' in result:
+                            st.markdown("**🔄 Respuesta Combinada:**")
+                            st.markdown(result['combined_response'])
+                        
+                        # Mostrar información adicional
+                        if 'additional_info' in result:
+                            with st.expander("ℹ️ Información Adicional", expanded=False):
+                                st.json(result['additional_info'])
+                        
+                        # Guardar en historial de sesión
+                        if 'query_history' not in st.session_state:
+                            st.session_state.query_history = []
+                        
+                        st.session_state.query_history.append({
+                            'timestamp': datetime.now().isoformat(),
+                            'query': query_input,
+                            'agent': result.get('routing_info', {}).get('selected_agent', 'Unknown'),
+                            'confidence': result.get('routing_info', {}).get('confidence', 0),
+                            'processing_time': processing_time
+                        })
+                        
+                    else:
+                        st.error("❌ No se pudo procesar la consulta")
+                else:
+                    st.error("❌ No se pudo cargar el sistema RAG")
+                    
+            except Exception as e:
+                st.error(f"❌ Error procesando consulta: {str(e)}")
+                import traceback
+                with st.expander("🔍 Detalles del Error", expanded=False):
+                    st.code(traceback.format_exc())
+    
+    elif execute_button:
+        st.warning("Por favor ingresa una consulta")
+    
+    # Mostrar historial de consultas
+    if 'query_history' in st.session_state and st.session_state.query_history:
+        st.markdown("### 📈 Historial de Consultas")
+        
+        with st.expander("📋 Ver Historial", expanded=False):
+            df_history = pd.DataFrame(st.session_state.query_history)
+            st.dataframe(df_history, use_container_width=True)
+            
+            if st.button("🗑️ Limpiar Historial"):
+                st.session_state.query_history = []
+                st.success("Historial limpiado")
+                st.rerun()
 
 with tab4:
     st.header("📊 Reportes del Sistema")
