@@ -239,25 +239,75 @@ with tab1:
                                             # Mostrar campos
                                             st.markdown("**📋 Estructura de Campos:**")
                                             
+                                            # Contadores para estadísticas
+                                            fields_with_desc = 0
+                                            total_fields = len(structure['columns'])
+                                            
                                             columns_data = []
                                             for col in structure['columns']:
+                                                description = col.get('description', '').strip()
+                                                if description:
+                                                    fields_with_desc += 1
+                                                
                                                 columns_data.append({
                                                     'Campo': col['name'],
                                                     'Tipo': col['full_type'],
                                                     'Nullable': col['is_nullable'],
                                                     'PK': '🔑' if col['is_primary_key'] == 'YES' else '',
                                                     'Posición': col['ordinal_position'],
-                                                    'Descripción': col.get('description', '')
+                                                    'Descripción': description if description else '(Sin descripción)'
                                                 })
                                             
+                                            # Mostrar estadísticas de descripciones
+                                            col1, col2, col3 = st.columns(3)
+                                            with col1:
+                                                st.metric("Total Campos", total_fields)
+                                            with col2:
+                                                st.metric("Con Descripción", fields_with_desc)
+                                            with col3:
+                                                percentage = (fields_with_desc / total_fields * 100) if total_fields > 0 else 0
+                                                st.metric("Porcentaje", f"{percentage:.1f}%")
+                                            
+                                            # Crear dataframe con mejor formato
                                             df_columns = pd.DataFrame(columns_data)
                                             
+                                            # Configurar columnas para mejor visualización
+                                            column_config = {
+                                                'Campo': st.column_config.TextColumn('Campo', width="medium"),
+                                                'Tipo': st.column_config.TextColumn('Tipo', width="medium"),
+                                                'Nullable': st.column_config.TextColumn('Null', width="small"),
+                                                'PK': st.column_config.TextColumn('PK', width="small"),
+                                                'Posición': st.column_config.NumberColumn('Pos', width="small"),
+                                                'Descripción': st.column_config.TextColumn('Descripción', width="large")
+                                            }
+                                            
                                             if show_all_columns:
-                                                st.dataframe(df_columns, use_container_width=True)
+                                                st.dataframe(
+                                                    df_columns, 
+                                                    use_container_width=True,
+                                                    column_config=column_config,
+                                                    hide_index=True
+                                                )
                                             else:
-                                                st.dataframe(df_columns.head(10), use_container_width=True)
+                                                st.dataframe(
+                                                    df_columns.head(10), 
+                                                    use_container_width=True,
+                                                    column_config=column_config,
+                                                    hide_index=True
+                                                )
                                                 if len(df_columns) > 10:
                                                     st.info(f"Mostrando 10 de {len(df_columns)} campos. Activa 'Mostrar todos los campos' en la barra lateral para ver todos.")
+                                            
+                                            # Mostrar vista alternativa para campos con descripciones
+                                            if fields_with_desc > 0:
+                                                with st.expander(f"📝 Vista Detallada de Descripciones ({fields_with_desc} campos)", expanded=False):
+                                                    for i, col in enumerate(structure['columns'], 1):
+                                                        description = col.get('description', '').strip()
+                                                        if description:
+                                                            pk_indicator = " 🔑" if col['is_primary_key'] == 'YES' else ""
+                                                            st.markdown(f"**{i}. {col['name']}**: {col['full_type']}{pk_indicator}")
+                                                            st.markdown(f"   📝 {description}")
+                                                            st.markdown("---")
                                         
                                         with tab2:
                                             # Claves Primarias
