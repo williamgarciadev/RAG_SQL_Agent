@@ -1,0 +1,19 @@
+Tabla FSD601 - Servicios Financieros
+
+Esta tabla contiene información sobre los servicios financieros del banco.
+
+Campos principales:
+- FSD601ID: Identificador único del servicio
+- FSD601CODIGO: Código del servicio
+- FSD601NOMBRE: Nombre descriptivo del servicio
+- FSD601TIPO: Tipo de servicio (CC=Cuenta Corriente, CA=Caja Ahorro)
+- FSD601ESTADO: Estado del servicio (A=Activo, I=Inactivo)
+- FSD601FECHA: Fecha de creación del servicio
+
+Consulta SQL típica:
+SELECT FSD601ID, FSD601CODIGO, FSD601NOMBRE, FSD601TIPO, FSD601ESTADO
+FROM dbo.FSD601 
+WHERE FSD601ESTADO = 'A'
+ORDER BY FSD601NOMBRE
+
+Este servicio es fundamental para la gestión de productos bancarios.

@@ -1,0 +1,103 @@
+{
+  "description": "Estrategia de extracción para miles de tablas Bantotal",
+  "bantotal_nomenclature": {
+    "FST": "Tablas Básicas - Genéricas",
+    "FSD": "Datos",
+    "FSR": "Relaciones",
+    "FSE": "Extensiones",
+    "FSH": "Históricos",
+    "FSX": "Textos",
+    "FSA": "Auxiliares",
+    "FSI": "Informaciones",
+    "FSM": "Menús",
+    "FSN": "Numeradores"
+  },
+  "extraction_phases": [
+    {
+      "phase": 1,
+      "name": "Tablas Básicas Bantotal",
+      "patterns": [
+        "FST"
+      ],
+      "priority": "CRITICAL",
+      "batch_size": 100,
+      "description": "Tablas genéricas fundamentales del sistema"
+    },
+    {
+      "phase": 2,
+      "name": "Datos Core",
+      "patterns": [
+        "FSD"
+      ],
+      "priority": "HIGH",
+      "batch_size": 150,
+      "description": "Tablas de datos principales"
+    },
+    {
+      "phase": 3,
+      "name": "Relaciones y Extensiones",
+      "patterns": [
+        "FSR",
+        "FSE"
+      ],
+      "priority": "HIGH",
+      "batch_size": 200,
+      "description": "Tablas de relaciones y extensiones"
+    },
+    {
+      "phase": 4,
+      "name": "Información y Auxiliares",
+      "patterns": [
+        "FSI",
+        "FSA"
+      ],
+      "priority": "MEDIUM",
+      "batch_size": 250,
+      "description": "Tablas de información y auxiliares"
+    },
+    {
+      "phase": 5,
+      "name": "Históricos y Textos",
+      "patterns": [
+        "FSH",
+        "FSX"
+      ],
+      "priority": "LOW",
+      "batch_size": 300,
+      "description": "Tablas de históricos y textos"
+    },
+    {
+      "phase": 6,
+      "name": "Menús y Numeradores",
+      "patterns": [
+        "FSM",
+        "FSN"
+      ],
+      "priority": "LOW",
+      "batch_size": 200,
+      "description": "Tablas de menús y numeradores"
+    }
+  ],
+  "search_optimizations": {
+    "common_queries": [
+      "FST001",
+      "FST002",
+      "FST003",
+      "FSD601",
+      "FSD602",
+      "FSD603",
+      "FSE001",
+      "FSE002",
+      "ABONADO",
+      "CLIENTE",
+      "CUENTA",
+      "SERVICIO"
+    ],
+    "priority_patterns": [
+      "FST",
+      "FSD",
+      "FSR",
+      "FSE"
+    ]
+  }
+}

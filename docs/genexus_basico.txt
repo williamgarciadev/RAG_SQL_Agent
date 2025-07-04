@@ -1,0 +1,22 @@
+Manual GeneXus - Comandos Básicos
+
+FOR EACH es uno de los comandos más importantes en GeneXus.
+
+Sintaxis básica:
+FOR EACH tabla
+  WHERE condicion
+    // acciones
+ENDFOR
+
+Ejemplo para tabla FSD601:
+FOR EACH FSD601
+  WHERE FSD601Estado = 'A'
+    &codigo = FSD601Codigo
+    &nombre = FSD601Nombre
+ENDFOR
+
+Best practices:
+1. Siempre usar WHERE para filtrar
+2. Indexar campos de búsqueda
+3. Usar variables tipadas
+4. Manejar excepciones apropiadamente

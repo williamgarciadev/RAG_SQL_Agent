@@ -1,0 +1,22 @@
+{
+  "created_at": "2025-07-03T10:56:15.860163",
+  "document_count": 813,
+  "collection_name": "documents",
+  "embedding_model": "all-MiniLM-L6-v2",
+  "chroma_db_path": "E:\\RAG_SQL_Agent\\chroma_db",
+  "source_statistics": {
+    "database": 3,
+    "database_table": 807,
+    "file": 3
+  },
+  "total_characters": 8098445,
+  "average_chunk_size": 9961.186961869618,
+  "content_hash": "1d69c6241936ba86cdecd5d5b2c252c3",
+  "file_signatures": {
+    "E:\\RAG_SQL_Agent\\docs\\estructura_tablas_kb_nativa_micro.json": "1751423774.24811:15289167",
+    "E:\\RAG_SQL_Agent\\docs\\genexus_basico.txt": "1751556582.862934:473",
+    "E:\\RAG_SQL_Agent\\docs\\tabla_fsd601.txt": "1751556582.8579316:688"
+  },
+  "urls_file_hash": "8052c9e23a8cf69dc6ecd858c5d06ffb",
+  "version": "2.0"
+}

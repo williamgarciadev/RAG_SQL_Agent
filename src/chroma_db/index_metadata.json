@@ -1,0 +1,14 @@
+{
+  "created_at": "2025-07-02T16:09:19.096420",
+  "document_count": 27,
+  "collection_name": "documents",
+  "embedding_model": "all-MiniLM-L6-v2",
+  "chroma_db_path": "E:\\RAG_SQL_Agent\\src\\chroma_db",
+  "source_statistics": {
+    "file": 23,
+    "web": 4
+  },
+  "total_characters": 2377033,
+  "average_chunk_size": 88038.25925925926,
+  "version": "1.0"
+}
