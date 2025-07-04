@@ -9,3 +9,4 @@ __pycache__/
 chroma_db/
 db_cache/
 venv/
+.claude/
