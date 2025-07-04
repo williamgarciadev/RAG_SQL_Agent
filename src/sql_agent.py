@@ -304,8 +304,8 @@ class SQLAgent:
                 # Campos con detalles
                 context_parts.append("\nCAMPOS DISPONIBLES:")
                 for col in structure['columns']:
-                    key_info = f" [{col['key_type']}]" if col['key_type'] else ""
-                    nullable = " NULL" if col['nullable'] else " NOT NULL"
+                    key_info = " [PK]" if col['is_primary_key'] == 'YES' else ""
+                    nullable = " NULL" if col['is_nullable'] == 'YES' else " NOT NULL"
                     context_parts.append(f"- {col['name']}: {col['full_type']}{nullable}{key_info}")
 
                 # Claves primarias
@@ -313,10 +313,11 @@ class SQLAgent:
                     context_parts.append(f"\nCLAVES PRIMARIAS: {', '.join(structure['primary_keys'])}")
 
                 # Claves foráneas
-                if structure['foreign_keys']:
+                foreign_keys = structure.get('foreign_keys', [])
+                if foreign_keys:
                     context_parts.append("\nCLAVES FORÁNEAS:")
-                    for fk in structure['foreign_keys']:
-                        context_parts.append(f"- {fk['column']} → {fk['references']}.{fk['ref_column']}")
+                    for fk in foreign_keys:
+                        context_parts.append(f"- {fk['column_name']} → {fk['referenced_schema']}.{fk['referenced_table']}.{fk['referenced_column']}")
 
                 context_parts.append("\n" + "=" * 50 + "\n")
 
@@ -644,8 +645,8 @@ FROM {full_table_name}"""
         elif operation == 'INSERT':
             # Campos no nulos y sin default
             required_fields = [col for col in columns if
-                               not col['nullable'] and not col['default'] and col['key_type'] != 'PRIMARY KEY']
-            optional_fields = [col for col in columns if col['nullable'] or col['default']]
+                               col['is_nullable'] == 'NO' and not col.get('default_value') and col['is_primary_key'] != 'YES']
+            optional_fields = [col for col in columns if col['is_nullable'] == 'YES' or col.get('default_value')]
 
             field_names = [col['name'] for col in required_fields]
             field_values = []
@@ -683,7 +684,7 @@ INSERT INTO {full_table_name} (
 
         elif operation == 'UPDATE':
             # Usar campos editables (no claves primarias)
-            editable_fields = [col for col in columns if col['key_type'] != 'PRIMARY KEY'][:5]
+            editable_fields = [col for col in columns if col['is_primary_key'] != 'YES'][:5]
 
             set_clauses = []
             for col in editable_fields:

@@ -1,0 +1,100 @@
+# METADATA MEJORADA DE BASE DE DATOS SQL SERVER
+# Sistema RAG - Extracto con Descripciones, Índices y Constraints
+
+## VISTA GENERAL
+Base de datos: bttest
+Total tablas: 1885
+Total vistas: 0
+Esquemas: 1
+
+## DISTRIBUCIÓN TABLAS BANTOTAL
+Fst: 219 tablas
+Fsd: 140 tablas
+Fsr: 55 tablas
+Fsa: 53 tablas
+fse: 48 tablas
+FSH: 33 tablas
+Fsx: 17 tablas
+FSI: 9 tablas
+Fsn: 6 tablas
+Fsm: 2 tablas
+
+## TABLAS CON METADATA COMPLETA
+
+### TABLA FST001
+Nombre completo: dbo.Fst001
+Total campos: 12
+Tiene PK: Sí
+Campos con descripción: 0
+Foreign Keys: 2
+Índices: 2
+Constraints: 3
+
+CAMPOS DE MUESTRA:
+  Pgcod: smallint (PK)
+  Sucurs: int (PK)
+  Scnom: char(30)
+  Scnomr: char(5)
+  Sccall: char(25)
+
+### TABLA FST023
+Nombre completo: dbo.FST023
+Total campos: 4
+Tiene PK: Sí
+Descripción: Género de Personas Físicas
+Campos con descripción: 4
+Foreign Keys: 0
+Índices: 1
+Constraints: 1
+
+CAMPOS DE MUESTRA:
+  FST023Cod: char(1) (PK) - Código de Identidad de Género
+  FST023Dsc: char(20) - Descripción de Identidad de Género
+  FST023Aux: int - Auxiliar de Numérico
+  FST023Aux2: char(30) - Auxiliar Alfanumérico
+
+### TABLA FSD010
+Nombre completo: dbo.Fsd010
+Total campos: 45
+Tiene PK: Sí
+Descripción: Fsd010 - Operaciones
+Campos con descripción: 45
+Foreign Keys: 13
+Índices: 10
+Constraints: 8
+
+CAMPOS DE MUESTRA:
+  Pgcod: smallint (PK) - Cod.
+  Aomod: int (PK) - Modulo
+  Aosuc: int (PK) - Sucursal
+  Aomda: smallint (PK) - Moneda
+  Aopap: int (PK) - Aopap
+
+### TABLA FSD601
+Nombre completo: dbo.Fsd601
+Total campos: 31
+Tiene PK: Sí
+Descripción: Fsd601 - Op. a Plazo
+Campos con descripción: 31
+Foreign Keys: 11
+Índices: 10
+Constraints: 6
+
+CAMPOS DE MUESTRA:
+  Pgcod: smallint (PK) - Cod.
+  Ppmod: int (PK) - Ppmod
+  Ppsuc: int (PK) - Ppsuc
+  Ppmda: smallint (PK) - Ppmda
+  Pppap: int (PK) - Pppap
+
+## INFORMACIÓN DE EXTRACCIÓN
+Timestamp: 2025-07-04T10:06:28.316321
+Características mejoradas:
+  - field_descriptions
+  - table_descriptions
+  - foreign_keys
+  - indexes
+  - constraints
+
+Este documento contiene metadata mejorada para consultas RAG inteligentes
+Incluye descripciones de campos, índices, foreign keys y constraints

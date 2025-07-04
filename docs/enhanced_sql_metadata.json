@@ -1,0 +1,335 @@
+{
+  "database_overview": {
+    "TOTAL_TABLES": 1885,
+    "TOTAL_VIEWS": 0,
+    "TOTAL_SCHEMAS": 1,
+    "DATABASE_NAME": "bttest",
+    "bantotal_prefixes": [
+      {
+        "PREFIX": "Fst",
+        "TABLE_COUNT": 219
+      },
+      {
+        "PREFIX": "Fsd",
+        "TABLE_COUNT": 140
+      },
+      {
+        "PREFIX": "Fsr",
+        "TABLE_COUNT": 55
+      },
+      {
+        "PREFIX": "Fsa",
+        "TABLE_COUNT": 53
+      },
+      {
+        "PREFIX": "fse",
+        "TABLE_COUNT": 48
+      },
+      {
+        "PREFIX": "FSH",
+        "TABLE_COUNT": 33
+      },
+      {
+        "PREFIX": "Fsx",
+        "TABLE_COUNT": 17
+      },
+      {
+        "PREFIX": "FSI",
+        "TABLE_COUNT": 9
+      },
+      {
+        "PREFIX": "Fsn",
+        "TABLE_COUNT": 6
+      },
+      {
+        "PREFIX": "Fsm",
+        "TABLE_COUNT": 2
+      }
+    ]
+  },
+  "tables_with_enhanced_metadata": {
+    "FST001": {
+      "basic_info": {
+        "full_name": "dbo.Fst001",
+        "column_count": 12,
+        "has_primary_key": true
+      },
+      "enhanced_metadata": {
+        "table_description": "",
+        "fields_with_descriptions": 0,
+        "foreign_keys_count": 2,
+        "indexes_count": 2,
+        "constraints_count": 3
+      },
+      "sample_fields": [
+        {
+          "name": "Pgcod",
+          "data_type": "smallint",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 1,
+          "full_type": "smallint",
+          "is_primary_key": "YES",
+          "description": ""
+        },
+        {
+          "name": "Sucurs",
+          "data_type": "int",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 2,
+          "full_type": "int",
+          "is_primary_key": "YES",
+          "description": ""
+        },
+        {
+          "name": "Scnom",
+          "data_type": "char",
+          "max_length": 30,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 3,
+          "full_type": "char(30)",
+          "is_primary_key": "NO",
+          "description": ""
+        },
+        {
+          "name": "Scnomr",
+          "data_type": "char",
+          "max_length": 5,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 4,
+          "full_type": "char(5)",
+          "is_primary_key": "NO",
+          "description": ""
+        },
+        {
+          "name": "Sccall",
+          "data_type": "char",
+          "max_length": 25,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 5,
+          "full_type": "char(25)",
+          "is_primary_key": "NO",
+          "description": ""
+        }
+      ]
+    },
+    "FST023": {
+      "basic_info": {
+        "full_name": "dbo.FST023",
+        "column_count": 4,
+        "has_primary_key": true
+      },
+      "enhanced_metadata": {
+        "table_description": "Género de Personas Físicas",
+        "fields_with_descriptions": 4,
+        "foreign_keys_count": 0,
+        "indexes_count": 1,
+        "constraints_count": 1
+      },
+      "sample_fields": [
+        {
+          "name": "FST023Cod",
+          "data_type": "char",
+          "max_length": 1,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 1,
+          "full_type": "char(1)",
+          "is_primary_key": "YES",
+          "description": "Código de Identidad de Género"
+        },
+        {
+          "name": "FST023Dsc",
+          "data_type": "char",
+          "max_length": 20,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 2,
+          "full_type": "char(20)",
+          "is_primary_key": "NO",
+          "description": "Descripción de Identidad de Género"
+        },
+        {
+          "name": "FST023Aux",
+          "data_type": "int",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 3,
+          "full_type": "int",
+          "is_primary_key": "NO",
+          "description": "Auxiliar de Numérico"
+        },
+        {
+          "name": "FST023Aux2",
+          "data_type": "char",
+          "max_length": 30,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 4,
+          "full_type": "char(30)",
+          "is_primary_key": "NO",
+          "description": "Auxiliar Alfanumérico"
+        }
+      ]
+    },
+    "FSD010": {
+      "basic_info": {
+        "full_name": "dbo.Fsd010",
+        "column_count": 45,
+        "has_primary_key": true
+      },
+      "enhanced_metadata": {
+        "table_description": "Fsd010 - Operaciones",
+        "fields_with_descriptions": 45,
+        "foreign_keys_count": 13,
+        "indexes_count": 10,
+        "constraints_count": 8
+      },
+      "sample_fields": [
+        {
+          "name": "Pgcod",
+          "data_type": "smallint",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 1,
+          "full_type": "smallint",
+          "is_primary_key": "YES",
+          "description": "Cod."
+        },
+        {
+          "name": "Aomod",
+          "data_type": "int",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 2,
+          "full_type": "int",
+          "is_primary_key": "YES",
+          "description": "Modulo"
+        },
+        {
+          "name": "Aosuc",
+          "data_type": "int",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 3,
+          "full_type": "int",
+          "is_primary_key": "YES",
+          "description": "Sucursal"
+        },
+        {
+          "name": "Aomda",
+          "data_type": "smallint",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 4,
+          "full_type": "smallint",
+          "is_primary_key": "YES",
+          "description": "Moneda"
+        },
+        {
+          "name": "Aopap",
+          "data_type": "int",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 5,
+          "full_type": "int",
+          "is_primary_key": "YES",
+          "description": "Aopap"
+        }
+      ]
+    },
+    "FSD601": {
+      "basic_info": {
+        "full_name": "dbo.Fsd601",
+        "column_count": 31,
+        "has_primary_key": true
+      },
+      "enhanced_metadata": {
+        "table_description": "Fsd601 - Op. a Plazo",
+        "fields_with_descriptions": 31,
+        "foreign_keys_count": 11,
+        "indexes_count": 10,
+        "constraints_count": 6
+      },
+      "sample_fields": [
+        {
+          "name": "Pgcod",
+          "data_type": "smallint",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 1,
+          "full_type": "smallint",
+          "is_primary_key": "YES",
+          "description": "Cod."
+        },
+        {
+          "name": "Ppmod",
+          "data_type": "int",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 2,
+          "full_type": "int",
+          "is_primary_key": "YES",
+          "description": "Ppmod"
+        },
+        {
+          "name": "Ppsuc",
+          "data_type": "int",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 3,
+          "full_type": "int",
+          "is_primary_key": "YES",
+          "description": "Ppsuc"
+        },
+        {
+          "name": "Ppmda",
+          "data_type": "smallint",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 4,
+          "full_type": "smallint",
+          "is_primary_key": "YES",
+          "description": "Ppmda"
+        },
+        {
+          "name": "Pppap",
+          "data_type": "int",
+          "max_length": null,
+          "is_nullable": "NO",
+          "default_value": null,
+          "ordinal_position": 5,
+          "full_type": "int",
+          "is_primary_key": "YES",
+          "description": "Pppap"
+        }
+      ]
+    }
+  },
+  "extraction_info": {
+    "timestamp": "2025-07-04T10:06:28.316321",
+    "enhanced_features": [
+      "field_descriptions",
+      "table_descriptions",
+      "foreign_keys",
+      "indexes",
+      "constraints"
+    ]
+  }
+}
