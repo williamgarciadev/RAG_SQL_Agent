@@ -200,6 +200,9 @@ class DatabaseExplorer:
         
         primary_keys = self.execute_query(pk_query)
         
+        # Obtener metadata adicional
+        metadata = self._get_additional_metadata(table_name, schema)
+        
         return {
             'table_name': table_name,
             'schema': schema,
@@ -207,8 +210,99 @@ class DatabaseExplorer:
             'column_count': len(columns),
             'columns': columns,
             'primary_keys': [pk['COLUMN_NAME'] for pk in primary_keys],
-            'has_primary_key': len(primary_keys) > 0
+            'has_primary_key': len(primary_keys) > 0,
+            'foreign_keys': metadata.get('foreign_keys', []),
+            'indexes': metadata.get('indexes', []),
+            'constraints': metadata.get('constraints', []),
+            'table_description': metadata.get('table_description', '')
         }
+    
+    def _get_additional_metadata(self, table_name: str, schema: str = 'dbo') -> Dict:
+        """Obtener metadata adicional: foreign keys, índices, constraints."""
+        metadata = {
+            'foreign_keys': [],
+            'indexes': [],
+            'constraints': [],
+            'table_description': ''
+        }
+        
+        try:
+            # 1. Foreign Keys
+            fk_query = f"""
+            SELECT 
+                kcu.COLUMN_NAME as column_name,
+                kcu.CONSTRAINT_NAME as constraint_name,
+                kcu2.TABLE_SCHEMA as referenced_schema,
+                kcu2.TABLE_NAME as referenced_table,
+                kcu2.COLUMN_NAME as referenced_column
+            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+            JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
+                ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+            JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu2 
+                ON rc.UNIQUE_CONSTRAINT_NAME = kcu2.CONSTRAINT_NAME
+            WHERE kcu.TABLE_NAME = '{table_name}'
+            AND kcu.TABLE_SCHEMA = '{schema}'
+            ORDER BY kcu.ORDINAL_POSITION
+            """
+            
+            fk_results = self.execute_query(fk_query)
+            metadata['foreign_keys'] = fk_results
+            
+            # 2. Índices
+            index_query = f"""
+            SELECT 
+                i.name as index_name,
+                i.type_desc as index_type,
+                i.is_unique,
+                i.is_primary_key,
+                STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) as columns
+            FROM sys.indexes i
+            JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+            JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+            WHERE i.object_id = OBJECT_ID('{schema}.{table_name}')
+            AND i.name IS NOT NULL
+            GROUP BY i.name, i.type_desc, i.is_unique, i.is_primary_key
+            ORDER BY i.is_primary_key DESC, i.is_unique DESC
+            """
+            
+            index_results = self.execute_query(index_query)
+            metadata['indexes'] = index_results
+            
+            # 3. Constraints adicionales
+            constraint_query = f"""
+            SELECT 
+                tc.CONSTRAINT_NAME,
+                tc.CONSTRAINT_TYPE,
+                STRING_AGG(kcu.COLUMN_NAME, ', ') as columns
+            FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+            LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu 
+                ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+            WHERE tc.TABLE_NAME = '{table_name}'
+            AND tc.TABLE_SCHEMA = '{schema}'
+            GROUP BY tc.CONSTRAINT_NAME, tc.CONSTRAINT_TYPE
+            ORDER BY tc.CONSTRAINT_TYPE
+            """
+            
+            constraint_results = self.execute_query(constraint_query)
+            metadata['constraints'] = constraint_results
+            
+            # 4. Descripción de la tabla
+            table_desc_query = f"""
+            SELECT CAST(ep.value AS NVARCHAR(MAX)) as table_description
+            FROM sys.extended_properties ep
+            WHERE ep.major_id = OBJECT_ID('{schema}.{table_name}')
+            AND ep.minor_id = 0
+            AND ep.name = 'MS_Description'
+            """
+            
+            table_desc_results = self.execute_query(table_desc_query)
+            if table_desc_results:
+                metadata['table_description'] = table_desc_results[0].get('table_description', '')
+            
+        except Exception as e:
+            print(f"⚠️ Error obteniendo metadata adicional: {e}")
+        
+        return metadata
     
     def get_database_overview(self) -> Dict:
         """Vista general con focus en tablas Bantotal."""

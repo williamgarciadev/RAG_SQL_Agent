@@ -224,36 +224,99 @@ with tab1:
                                             st.metric("Tiene PK", "✅" if structure['has_primary_key'] else "❌")
                                         
                                         with col3:
-                                            st.metric("Claves PK", len(structure['primary_keys']))
+                                            fk_count = len(structure.get('foreign_keys', []))
+                                            st.metric("Foreign Keys", fk_count)
                                         
-                                        # Mostrar PKs
-                                        if structure['has_primary_key']:
-                                            st.markdown("**🔑 Claves Primarias:**")
-                                            for pk in structure['primary_keys']:
-                                                st.code(pk, language="sql")
+                                        # Descripción de la tabla si existe
+                                        table_desc = structure.get('table_description', '').strip()
+                                        if table_desc:
+                                            st.info(f"📝 **Descripción:** {table_desc}")
                                         
-                                        # Mostrar campos
-                                        st.markdown("**📋 Estructura de Campos:**")
+                                        # Crear tabs para organizar mejor la información
+                                        tab1, tab2, tab3, tab4 = st.tabs(["📋 Campos", "🔑 Claves", "📊 Índices", "🔗 Constraints"])
                                         
-                                        columns_data = []
-                                        for col in structure['columns']:
-                                            columns_data.append({
-                                                'Campo': col['name'],
-                                                'Tipo': col['full_type'],
-                                                'Nullable': col['is_nullable'],
-                                                'PK': '🔑' if col['is_primary_key'] == 'YES' else '',
-                                                'Posición': col['ordinal_position'],
-                                                'Descripción': col.get('description', '')
-                                            })
+                                        with tab1:
+                                            # Mostrar campos
+                                            st.markdown("**📋 Estructura de Campos:**")
+                                            
+                                            columns_data = []
+                                            for col in structure['columns']:
+                                                columns_data.append({
+                                                    'Campo': col['name'],
+                                                    'Tipo': col['full_type'],
+                                                    'Nullable': col['is_nullable'],
+                                                    'PK': '🔑' if col['is_primary_key'] == 'YES' else '',
+                                                    'Posición': col['ordinal_position'],
+                                                    'Descripción': col.get('description', '')
+                                                })
+                                            
+                                            df_columns = pd.DataFrame(columns_data)
+                                            
+                                            if show_all_columns:
+                                                st.dataframe(df_columns, use_container_width=True)
+                                            else:
+                                                st.dataframe(df_columns.head(10), use_container_width=True)
+                                                if len(df_columns) > 10:
+                                                    st.info(f"Mostrando 10 de {len(df_columns)} campos. Activa 'Mostrar todos los campos' en la barra lateral para ver todos.")
                                         
-                                        df_columns = pd.DataFrame(columns_data)
+                                        with tab2:
+                                            # Claves Primarias
+                                            if structure['has_primary_key']:
+                                                st.markdown("**🔑 Claves Primarias:**")
+                                                for pk in structure['primary_keys']:
+                                                    st.code(pk, language="sql")
+                                            else:
+                                                st.warning("⚠️ Esta tabla no tiene claves primarias definidas")
+                                            
+                                            # Foreign Keys
+                                            foreign_keys = structure.get('foreign_keys', [])
+                                            if foreign_keys:
+                                                st.markdown("**🔗 Claves Foráneas:**")
+                                                fk_data = []
+                                                for fk in foreign_keys:
+                                                    fk_data.append({
+                                                        'Campo Local': fk['column_name'],
+                                                        'Constraint': fk['constraint_name'],
+                                                        'Tabla Referenciada': f"{fk['referenced_schema']}.{fk['referenced_table']}",
+                                                        'Campo Referenciado': fk['referenced_column']
+                                                    })
+                                                st.dataframe(pd.DataFrame(fk_data), use_container_width=True)
+                                            else:
+                                                st.info("ℹ️ No se encontraron claves foráneas")
                                         
-                                        if show_all_columns:
-                                            st.dataframe(df_columns, use_container_width=True)
-                                        else:
-                                            st.dataframe(df_columns.head(10), use_container_width=True)
-                                            if len(df_columns) > 10:
-                                                st.info(f"Mostrando 10 de {len(df_columns)} campos. Activa 'Mostrar todos los campos' en la barra lateral para ver todos.")
+                                        with tab3:
+                                            # Índices
+                                            indexes = structure.get('indexes', [])
+                                            if indexes:
+                                                st.markdown("**📊 Índices:**")
+                                                index_data = []
+                                                for idx in indexes:
+                                                    index_data.append({
+                                                        'Nombre': idx['index_name'],
+                                                        'Tipo': idx['index_type'],
+                                                        'Único': '✅' if idx['is_unique'] else '❌',
+                                                        'PK': '🔑' if idx['is_primary_key'] else '',
+                                                        'Columnas': idx['columns']
+                                                    })
+                                                st.dataframe(pd.DataFrame(index_data), use_container_width=True)
+                                            else:
+                                                st.info("ℹ️ No se encontraron índices")
+                                        
+                                        with tab4:
+                                            # Constraints
+                                            constraints = structure.get('constraints', [])
+                                            if constraints:
+                                                st.markdown("**🔗 Constraints:**")
+                                                const_data = []
+                                                for const in constraints:
+                                                    const_data.append({
+                                                        'Nombre': const['CONSTRAINT_NAME'],
+                                                        'Tipo': const['CONSTRAINT_TYPE'],
+                                                        'Columnas': const['columns'] or 'N/A'
+                                                    })
+                                                st.dataframe(pd.DataFrame(const_data), use_container_width=True)
+                                            else:
+                                                st.info("ℹ️ No se encontraron constraints adicionales")
                         else:
                             st.warning(f"❌ No se encontraron tablas con '{search_term}'")
                         
