@@ -284,8 +284,9 @@ class DatabaseExplorer:
             print(f"❌ Error estructura {table_name}: {e}")
             return None
     
-    def generate_select_query(self, table_name: str, schema: str = None, limit: int = 100) -> str:
-        """Generar SELECT para tabla."""
+    def generate_select_query(self, table_name: str, schema: str = None, limit: int = 100, 
+                             include_joins: bool = True, join_type: str = 'LEFT') -> str:
+        """Generar SELECT para tabla con JOINs inteligentes."""
         structure = self.get_table_structure(table_name, schema)
         if not structure:
             return f"-- Error: No se pudo obtener estructura de {table_name}"
@@ -293,23 +294,183 @@ class DatabaseExplorer:
         full_name = structure['full_name']
         columns = structure['columns']
         
+        # Detectar relaciones para JOINs automáticos
+        joins_info = self._detect_table_relationships(table_name, schema) if include_joins else []
+        
         query_parts = [
-            f"-- Query para tabla Bantotal: {full_name}",
+            f"-- Query optimizada para tabla Bantotal: {full_name}",
             f"-- Total campos: {len(columns)}",
+            f"-- JOINs detectados: {len(joins_info)}",
             f"-- Generado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "",
             f"SELECT TOP {limit}"
         ]
         
+        # Agregar campos de la tabla principal
+        main_alias = self._get_table_alias(table_name)
         for i, col in enumerate(columns):
-            col_line = f"    {col['name']}"
-            if i < len(columns) - 1:
+            col_line = f"    {main_alias}.{col['name']}"
+            if i < len(columns) - 1 or joins_info:
                 col_line += ","
             query_parts.append(col_line)
         
-        query_parts.extend([
-            f"FROM {full_name}",
-            f"ORDER BY {columns[0]['name']}"
-        ])
+        # Agregar campos de tablas relacionadas
+        for join_info in joins_info:
+            related_cols = self._get_essential_columns(join_info['related_table'])
+            for j, col in enumerate(related_cols):
+                col_line = f"    {join_info['alias']}.{col} AS {join_info['alias']}_{col}"
+                if j < len(related_cols) - 1 or join_info != joins_info[-1]:
+                    col_line += ","
+                query_parts.append(col_line)
+        
+        # FROM con alias
+        query_parts.append(f"FROM {full_name} {main_alias}")
+        
+        # Agregar JOINs
+        for join_info in joins_info:
+            join_line = f"{join_type} JOIN {join_info['related_table']} {join_info['alias']}"
+            join_line += f" ON {main_alias}.{join_info['foreign_key']} = {join_info['alias']}.{join_info['primary_key']}"
+            query_parts.append(join_line)
+        
+        # ORDER BY inteligente
+        order_by_clause = self._generate_smart_order_by(columns, main_alias)
+        query_parts.append(order_by_clause)
+        
+        # Agregar ejemplos de filtros comunes
+        if self._is_bantotal_table(table_name):
+            query_parts.extend(self._generate_bantotal_filters(table_name, main_alias))
         
         return "\n".join(query_parts)
+    
+    def _detect_table_relationships(self, table_name: str, schema: str = None) -> List[Dict]:
+        """Detectar relaciones FK para generar JOINs automáticos."""
+        if not self.engine:
+            return []
+        
+        try:
+            with self.engine.connect() as conn:
+                # Buscar Foreign Keys de la tabla
+                fk_query = text("""
+                    SELECT 
+                        fk.name AS constraint_name,
+                        OBJECT_NAME(fk.parent_object_id) AS table_name,
+                        COL_NAME(fkc.parent_object_id, fkc.parent_column_id) AS column_name,
+                        OBJECT_NAME(fk.referenced_object_id) AS referenced_table,
+                        COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) AS referenced_column
+                    FROM sys.foreign_keys fk
+                    INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+                    WHERE OBJECT_NAME(fk.parent_object_id) = :table_name
+                """)
+                
+                fk_results = conn.execute(fk_query, {'table_name': table_name}).fetchall()
+                
+                relationships = []
+                for fk in fk_results:
+                    alias = self._get_table_alias(fk[3])
+                    relationships.append({
+                        'constraint_name': fk[0],
+                        'foreign_key': fk[2],
+                        'related_table': fk[3],
+                        'primary_key': fk[4],
+                        'alias': alias
+                    })
+                
+                return relationships[:3]  # Limitar a 3 JOINs para mantener legibilidad
+                
+        except Exception as e:
+            print(f"❌ Error detectando relaciones para {table_name}: {e}")
+            return []
+    
+    def _get_table_alias(self, table_name: str) -> str:
+        """Generar alias inteligente para tabla."""
+        if table_name.startswith('FST'):
+            return 'tb'  # Tabla Básica
+        elif table_name.startswith('FSD'):
+            return 'dt'  # Datos
+        elif table_name.startswith('FSR'):
+            return 'rl'  # Relaciones
+        elif table_name.startswith('FSE'):
+            return 'ex'  # Extensiones
+        elif table_name.startswith('FSH'):
+            return 'hs'  # Históricos
+        elif table_name.startswith('FSA'):
+            return 'ax'  # Auxiliares
+        else:
+            # Generar alias basado en las primeras letras
+            return ''.join([c.lower() for c in table_name[:3] if c.isalpha()])
+    
+    def _get_essential_columns(self, table_name: str) -> List[str]:
+        """Obtener columnas esenciales de una tabla relacionada."""
+        # Patrones comunes para columnas importantes
+        essential_patterns = [
+            'nombre', 'descripcion', 'codigo', 'id', 'estado', 'fecha',
+            'activo', 'vigente', 'tipo', 'categoria'
+        ]
+        
+        structure = self.get_table_structure(table_name)
+        if not structure:
+            return []
+        
+        essential_cols = []
+        for col in structure['columns'][:5]:  # Primeras 5 columnas
+            col_name = col['name'].lower()
+            if any(pattern in col_name for pattern in essential_patterns):
+                essential_cols.append(col['name'])
+        
+        return essential_cols[:3]  # Máximo 3 columnas por JOIN
+    
+    def _generate_smart_order_by(self, columns: List[Dict], alias: str) -> str:
+        """Generar ORDER BY inteligente."""
+        # Buscar columnas de orden prioritario
+        priority_patterns = [
+            'fecha', 'id', 'codigo', 'numero', 'secuencia',
+            'orden', 'prioridad', 'estado'
+        ]
+        
+        order_columns = []
+        
+        # Buscar columnas con patrones prioritarios
+        for pattern in priority_patterns:
+            for col in columns:
+                if pattern in col['name'].lower() and col['name'] not in [oc.split('.')[-1] for oc in order_columns]:
+                    order_columns.append(f"{alias}.{col['name']}")
+                    if len(order_columns) >= 2:
+                        break
+            if len(order_columns) >= 2:
+                break
+        
+        # Si no se encontraron columnas prioritarias, usar las primeras
+        if not order_columns:
+            order_columns = [f"{alias}.{columns[0]['name']}"]
+        
+        return f"ORDER BY {', '.join(order_columns)}"
+    
+    def _is_bantotal_table(self, table_name: str) -> bool:
+        """Verificar si es tabla Bantotal."""
+        return table_name.upper().startswith(('FST', 'FSD', 'FSR', 'FSE', 'FSH', 'FSX', 'FSA', 'FSI', 'FSM', 'FSN'))
+    
+    def _generate_bantotal_filters(self, table_name: str, alias: str) -> List[str]:
+        """Generar filtros comunes para tablas Bantotal."""
+        filters = [
+            "",
+            "-- Filtros comunes para tabla Bantotal:",
+        ]
+        
+        if table_name.startswith('FSD'):
+            filters.extend([
+                f"-- WHERE {alias}.estado = 'ACTIVO'",
+                f"-- WHERE {alias}.fecha_vigencia >= GETDATE()",
+                f"-- WHERE {alias}.sucursal = 1"
+            ])
+        elif table_name.startswith('FST'):
+            filters.extend([
+                f"-- WHERE {alias}.activo = 1",
+                f"-- WHERE {alias}.fecha_proceso = CONVERT(DATE, GETDATE())"
+            ])
+        else:
+            filters.extend([
+                f"-- WHERE {alias}.estado IN ('ACTIVO', 'VIGENTE')",
+                f"-- WHERE {alias}.fecha_creacion >= '2024-01-01'"
+            ])
+        
+        return filters

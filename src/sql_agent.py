@@ -571,57 +571,75 @@ WHERE id = 123;  -- Ajustar condición WHERE
         primary_keys = structure.get('primary_keys', [])
 
         if operation == 'SELECT':
-            # Determinar campos a mostrar
+            # Determinar si incluir JOINs
             query_lower = query.lower()
-            if 'todos los campos' in query_lower or 'all fields' in query_lower or '*' in query_lower:
-                # Mostrar todos los campos
-                field_list = [f"    {col['name']}" for col in columns]
-                fields_joined = ',\n'.join(field_list)
-                sql = f"""-- Consulta SELECT completa para {full_table_name}
+            include_joins = any(word in query_lower for word in ['join', 'relacion', 'relacionar', 'con', 'detalle'])
+            join_type = 'INNER' if 'inner' in query_lower else 'LEFT'
+            
+            # Usar el generador mejorado del DatabaseExplorer
+            if hasattr(self, 'db_explorer') and self.db_explorer:
+                table_name = structure['table_name']
+                schema = structure.get('schema', 'dbo')
+                
+                # Generar query con JOINs automáticos
+                sql = self.db_explorer.generate_select_query(
+                    table_name=table_name,
+                    schema=schema,
+                    limit=100,
+                    include_joins=include_joins,
+                    join_type=join_type
+                )
+            else:
+                # Fallback al método anterior si no hay DatabaseExplorer
+                if 'todos los campos' in query_lower or 'all fields' in query_lower or '*' in query_lower:
+                    # Mostrar todos los campos
+                    field_list = [f"    {col['name']}" for col in columns]
+                    fields_joined = ',\n'.join(field_list)
+                    sql = f"""-- Consulta SELECT completa para {full_table_name}
 -- Total de campos: {len(columns)}
 -- Generado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 SELECT TOP 100
 {fields_joined}
 FROM {full_table_name}"""
-            else:
-                # Mostrar campos principales (primeros 10)
-                main_fields = [f"    {col['name']}" for col in columns[:10]]
-                if len(columns) > 10:
-                    main_fields.append(f"    -- ... y {len(columns) - 10} campos más")
+                else:
+                    # Mostrar campos principales (primeros 10)
+                    main_fields = [f"    {col['name']}" for col in columns[:10]]
+                    if len(columns) > 10:
+                        main_fields.append(f"    -- ... y {len(columns) - 10} campos más")
 
-                fields_to_join = main_fields[:-1] if len(columns) > 10 else main_fields
-                main_fields_joined = ',\n'.join(fields_to_join)
+                    fields_to_join = main_fields[:-1] if len(columns) > 10 else main_fields
+                    main_fields_joined = ',\n'.join(fields_to_join)
 
-                sql = f"""-- Consulta SELECT principal para {full_table_name}
+                    sql = f"""-- Consulta SELECT principal para {full_table_name}
 -- Mostrando primeros 10 campos de {len(columns)} totales
 
 SELECT TOP 100
 {main_fields_joined}
 FROM {full_table_name}"""
 
-            # Agregar ORDER BY usando clave primaria si existe
-            if primary_keys:
-                sql += f"\nORDER BY {', '.join(primary_keys)};"
-            else:
-                sql += f"\nORDER BY {columns[0]['name']};"
+                # Agregar ORDER BY usando clave primaria si existe
+                if primary_keys:
+                    sql += f"\nORDER BY {', '.join(primary_keys)};"
+                else:
+                    sql += f"\nORDER BY {columns[0]['name']};"
 
-            # Agregar ejemplos de filtros
-            sql += "\n\n-- Ejemplos de filtros comunes:"
+                # Agregar ejemplos de filtros
+                sql += "\n\n-- Ejemplos de filtros comunes:"
 
-            # Buscar campos típicos para filtros
-            for col in columns[:5]:
-                col_name = col['name']
-                data_type = col['data_type'].lower()
+                # Buscar campos típicos para filtros
+                for col in columns[:5]:
+                    col_name = col['name']
+                    data_type = col['data_type'].lower()
 
-                if 'estado' in col_name.lower():
-                    sql += f"\n-- WHERE {col_name} = 'ACTIVO'"
-                elif 'fecha' in col_name.lower() or 'date' in data_type:
-                    sql += f"\n-- WHERE {col_name} >= '2024-01-01'"
-                elif any(word in col_name.lower() for word in ['nombre', 'descripcion', 'name']):
-                    sql += f"\n-- WHERE {col_name} LIKE '%texto%'"
-                elif any(word in data_type for word in ['int', 'numeric', 'decimal']):
-                    sql += f"\n-- WHERE {col_name} = 123"
+                    if 'estado' in col_name.lower():
+                        sql += f"\n-- WHERE {col_name} = 'ACTIVO'"
+                    elif 'fecha' in col_name.lower() or 'date' in data_type:
+                        sql += f"\n-- WHERE {col_name} >= '2024-01-01'"
+                    elif any(word in col_name.lower() for word in ['nombre', 'descripcion', 'name']):
+                        sql += f"\n-- WHERE {col_name} LIKE '%texto%'"
+                    elif any(word in data_type for word in ['int', 'numeric', 'decimal']):
+                        sql += f"\n-- WHERE {col_name} = 123"
 
         elif operation == 'INSERT':
             # Campos no nulos y sin default
