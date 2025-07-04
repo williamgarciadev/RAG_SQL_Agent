@@ -1,0 +1,40 @@
+# RAG SQL Agent - Dependencias del Proyecto
+# Sistema RAG especializado para entornos bancarios y Bantotal
+
+# === DEPENDENCIAS PRINCIPALES ===
+# Vector Database y RAG
+chromadb>=0.4.0
+
+# Web Interface
+streamlit>=1.28.0
+
+# HTTP y API
+requests>=2.31.0
+
+# Configuracion y Variables de Entorno
+python-dotenv>=1.0.0
+
+# === CONECTIVIDAD BASE DE DATOS ===
+# SQL Server connectivity
+pyodbc>=4.0.39
+sqlalchemy>=2.0.0
+
+# === PROCESAMIENTO DE DOCUMENTOS ===
+# PDF processing
+PyPDF2>=3.0.0
+
+# Microsoft Office documents
+python-docx>=0.8.11
+python-pptx>=0.6.21
+
+# Web scraping y HTML
+beautifulsoup4>=4.12.0
+
+# RTF documents
+striprtf>=0.0.19
+
+# === PROCESAMIENTO DE TEXTO ===
+# Text splitting para RAG
+langchain-text-splitters>=0.0.1
+# SQL Server con pymssql
+pymssql>=2.2.0

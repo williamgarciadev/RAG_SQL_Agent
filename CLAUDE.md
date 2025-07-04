@@ -99,7 +99,7 @@ MIN_SIMILARITY=0.1
 
 ### Testing and Diagnostics
 ```bash
-# System health check
+# System health check and troubleshooting
 python diagnose.py
 
 # Database connection test
@@ -110,6 +110,9 @@ python force_sql_extraction.py
 
 # Enable auto-extraction
 python enable_auto_sql_extraction.py
+
+# Test specific queries
+python test_joins.py
 ```
 
 ### Data Management
@@ -122,6 +125,22 @@ python src/ingestion.py
 
 # SQL-specific ingestion
 python src/ingestion_sql.py
+
+# Test SQL connection
+python src/ingestion.py --test-sql
+```
+
+### Development and Debugging
+```bash
+# Run system diagnostics (comprehensive troubleshooting)
+python diagnose.py
+
+# Test individual components
+python src/database_explorer.py search "table_name"
+python src/indexer.py --info
+
+# Performance optimization
+python scale_config.py
 ```
 
 ## Key Design Patterns
@@ -172,3 +191,63 @@ The system uses pattern matching and confidence scoring to route queries:
 - **SQL Server**: Primary database backend
 - **ChromaDB**: Vector storage for RAG functionality
 - **Streamlit**: Web interface framework
+
+## Troubleshooting and Debugging
+
+### Common Issues and Solutions
+
+**"Module not found" errors:**
+```bash
+# Ensure running from project root
+cd /path/to/RAG_SQL_Agent
+python rag.py "your query"
+```
+
+**"Index not available" errors:**
+```bash
+# Force re-indexing
+python src/indexer.py --force
+```
+
+**SQL connection issues:**
+```bash
+# Test SQL connection
+python src/ingestion.py --test-sql
+# Check .env file configuration
+```
+
+**No results from agents:**
+```bash
+# Run comprehensive diagnostics
+python diagnose.py
+```
+
+### Development Workflow
+
+1. **Setting up development environment:**
+   - Clone repository
+   - Configure `.env` file with database connection details
+   - Run initial setup: `python rag.py --setup`
+
+2. **Adding new documents:**
+   - Add files to `docs/` directory
+   - Run ingestion: `python src/ingestion.py`
+   - Force reindex: `python src/indexer.py --force`
+
+3. **Database schema changes:**
+   - Update `.env` if needed
+   - Run SQL extraction: `python src/ingestion.py --sql-smart`
+   - Test with: `python diagnose.py`
+
+4. **Testing queries:**
+   - Use `python rag.py "test query"` for end-to-end testing
+   - Use `python diagnose.py` for component-level diagnostics
+
+### Key Files for Development
+
+- `diagnose.py`: Comprehensive system diagnostics and troubleshooting
+- `rag.py`: Main entry point with extensive help system
+- `src/agent_director.py`: Query routing and orchestration logic
+- `src/database_explorer.py`: Database introspection and table discovery
+- `src/indexer.py`: Vector database management and search
+- `bantotal_extraction_strategy.json`: Configuration for Bantotal table extraction patterns
