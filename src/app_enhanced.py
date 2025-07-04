@@ -480,16 +480,17 @@ with tab3:
                     
                     if result:
                         # Mostrar información de routing si está habilitado
-                        if show_routing and 'routing_info' in result:
-                            routing_info = result['routing_info']
-                            
+                        metadata = result.get('metadata', {})
+                        
+                        if show_routing:
                             col1, col2, col3 = st.columns(3)
                             
                             with col1:
-                                st.metric("Agente Usado", routing_info.get('selected_agent', 'N/A'))
+                                st.metric("Agente Usado", result.get('agent_used', 'N/A'))
                             
                             with col2:
-                                st.metric("Confianza", f"{routing_info.get('confidence', 0):.2f}")
+                                confidence = metadata.get('intent_confidence', 0)
+                                st.metric("Confianza", f"{confidence:.2f}")
                             
                             with col3:
                                 st.metric("Tiempo (s)", f"{processing_time:.2f}")
@@ -497,22 +498,30 @@ with tab3:
                         # Mostrar respuesta principal
                         st.markdown("### 🎯 Respuesta del Sistema RAG")
                         
-                        if 'sql_response' in result:
-                            st.markdown("**🗄️ Respuesta SQL:**")
-                            st.code(result['sql_response'], language="sql")
+                        # Mostrar la respuesta principal
+                        answer = result.get('answer', '')
+                        if answer:
+                            st.markdown(answer)
+                        else:
+                            st.warning("No se recibió respuesta del sistema")
                         
-                        if 'docs_response' in result:
-                            st.markdown("**📚 Respuesta Documentación:**")
-                            st.markdown(result['docs_response'])
-                        
-                        if 'combined_response' in result:
-                            st.markdown("**🔄 Respuesta Combinada:**")
-                            st.markdown(result['combined_response'])
-                        
-                        # Mostrar información adicional
-                        if 'additional_info' in result:
-                            with st.expander("ℹ️ Información Adicional", expanded=False):
-                                st.json(result['additional_info'])
+                        # Mostrar información del resultado crudo si está disponible
+                        raw_result = result.get('raw_result', {})
+                        if raw_result and show_routing:
+                            with st.expander("🔍 Información Técnica", expanded=False):
+                                if isinstance(raw_result, dict):
+                                    # Para SQLAgent - mostrar detalles técnicos
+                                    if 'operation' in raw_result:
+                                        st.text(f"Operación: {raw_result.get('operation', 'N/A')}")
+                                    if 'table_name' in raw_result:
+                                        st.text(f"Tabla objetivo: {raw_result.get('table_name', 'N/A')}")
+                                    if 'sources_consulted' in raw_result:
+                                        st.text(f"Fuentes consultadas: {len(raw_result.get('sources_consulted', []))}")
+                                    
+                                    # Mostrar JSON completo
+                                    st.json(raw_result)
+                                else:
+                                    st.text(str(raw_result))
                         
                         # Guardar en historial de sesión
                         if 'query_history' not in st.session_state:
@@ -521,9 +530,10 @@ with tab3:
                         st.session_state.query_history.append({
                             'timestamp': datetime.now().isoformat(),
                             'query': query_input,
-                            'agent': result.get('routing_info', {}).get('selected_agent', 'Unknown'),
-                            'confidence': result.get('routing_info', {}).get('confidence', 0),
-                            'processing_time': processing_time
+                            'agent': result.get('agent_used', 'Unknown'),
+                            'confidence': metadata.get('intent_confidence', 0),
+                            'processing_time': processing_time,
+                            'success': metadata.get('success', False)
                         })
                         
                     else:
