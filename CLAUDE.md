@@ -2,252 +2,150 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## System Overview
+## 🏗️ Arquitectura del Sistema
 
-This is a specialized RAG (Retrieval-Augmented Generation) system designed for banking and financial systems, specifically optimized for Bantotal ERP environments. The system provides intelligent SQL query generation and documentation retrieval through a multi-agent architecture.
+Este es un **RAG SQL Agent** especializado en consultas bancarias (Bantotal/GeneXus) que utiliza una arquitectura de **agentes especializados** con un **director orquestador**.
 
-## Key Architecture Components
+### Componentes Principales:
 
-### Agent Architecture
-- **AgentDirector** (`src/agent_director.py`): Intelligent orchestrator that routes queries to appropriate specialized agents
-- **SQLAgent** (`src/sql_agent.py`): Generates optimized SQL queries (SELECT, INSERT, UPDATE, DELETE) for banking databases
-- **DocsAgent** (`src/docs_agent.py`): Handles technical documentation queries for GeneXus and Bantotal manuals
-- **DatabaseExplorer** (`src/database_explorer.py`): Explores database structures, optimized for Bantotal table nomenclature
+1. **Agent Director** (`src/agent_director.py`) - Orquestador que decide qué agente usar según la intención de la consulta
+2. **SQL Agent** (`src/sql_agent.py`) - Genera consultas SQL con JOINs inteligentes para Bantotal
+3. **Docs Agent** (`src/docs_agent.py`) - Consultas sobre documentación técnica GeneXus/Bantotal
+4. **Database Explorer** (`src/database_explorer.py`) - Explorador SQL Server optimizado para Bantotal
+5. **Indexer & ChromaDB** (`src/indexer.py`) - Sistema de vectores para búsqueda semántica
+6. **Ingestion System** (`src/ingestion.py`) - Procesa documentos PDF/DOCX y metadatos SQL
 
-### Core System Components
-- **Indexer** (`src/indexer.py`): Manages ChromaDB vector database for document and schema indexing
-- **Ingestion** (`src/ingestion.py`): Processes and indexes technical documentation and database schemas
-- **Master RAG Script** (`rag.py`): Main entry point - unified interface for all system functionality
+### Interfaces:
+- **CLI Principal:** `python rag.py "tu consulta"`
+- **Web Interface:** `streamlit run src/app.py`
 
-## Running the System
+## 🔧 Comandos de Desarrollo
 
-### Main Commands
-
-**Primary interface:**
+### Instalación y Setup:
 ```bash
-python rag.py "your query here"
-```
+# Instalar dependencias
+pip install -r requirements.txt
 
-**Web interface:**
-```bash
-streamlit run src/app.py
-```
-
-**Force re-indexing:**
-```bash
-python src/indexer.py --force
-```
-
-**Database analysis:**
-```bash
+# Configurar sistema para Bantotal
 python bantotal_config.py
+
+# Crear índice vectorial
+python src/indexer.py --force
+
+# Probar conexión SQL Server
+python test_connection.py
 ```
 
-### Configuration Scripts
+### Comandos Principales:
+```bash
+# Consultas CLI
+python rag.py "SELECT tabla abonados"
+python rag.py "cómo usar FOR EACH en GeneXus"
 
-- `bantotal_config.py`: Configure system for Bantotal-specific table structures
-- `scale_config.py`: Performance optimization for large databases
-- `diagnose.py`: System health check and troubleshooting
+# Estado del sistema
+python rag.py --status
+python rag.py --stats
+python rag.py --setup
 
-## Bantotal-Specific Knowledge
+# Interfaz web
+streamlit run src/app.py
 
-### Table Nomenclature
-The system understands Bantotal's table naming conventions:
-- **FST**: Tablas Básicas - Generic fundamental tables
-- **FSD**: Datos - Main data tables (e.g., FSD601 for services)
-- **FSR**: Relaciones - Relationship tables
-- **FSE**: Extensiones - Extension tables
-- **FSH**: Históricos - Historical data tables
-- **FSX**: Textos - Text/description tables
-- **FSA**: Auxiliares - Auxiliary tables
-- **FSI**: Informaciones - Information tables
-- **FSM**: Menús - Menu/interface tables
-- **FSN**: Numeradores - Counter/sequence tables
-
-### Query Classification
-The AgentDirector automatically classifies queries:
-- **SQL queries**: Patterns like "SELECT", "consultar tabla", "generar SQL"
-- **Documentation queries**: Patterns like "cómo hacer", "manual de", "procedimiento"
-- **Mixed queries**: Require both SQL generation and documentation lookup
-
-## Environment Setup
-
-### Required Dependencies
-- `chromadb`: Vector database for document storage
-- `streamlit`: Web interface framework
-- `pyodbc`: SQL Server connectivity
-- `sqlalchemy`: Database ORM
-- `requests`: HTTP client for Ollama integration
-- `python-dotenv`: Environment variable management
-
-### Environment Variables
-Create a `.env` file with:
+# Diagnóstico
+python diagnose.py
+python test_joins.py
+python test_enhanced_metadata.py
 ```
+
+## 🏦 Especialización Bancaria Bantotal
+
+### Nomenclatura de Tablas:
+- **FST:** Tablas Básicas (clientes, sucursales)
+- **FSD:** Datos (operaciones, servicios)  
+- **FSR:** Relaciones entre entidades
+- **FSE:** Extensiones y configuraciones
+- **FSH:** Históricos y auditoría
+- **FSX:** Textos y descripciones
+- **FSA:** Auxiliares y catálogos
+
+### JOINs Inteligentes:
+- Detección automática de Foreign Keys por posición de campos
+- Patrones Bantotal: Pgcod (Empresa) + módulo + sucursal + moneda
+- Máximo 3 JOINs por consulta para legibilidad
+
+## ⚙️ Configuración Importante
+
+### Variables de Entorno (.env):
+```bash
+# SQL Server
+SQL_SERVER_HOST=localhost
+SQL_SERVER_DATABASE=Bantotal
+SQL_SERVER_USERNAME=user
+SQL_SERVER_PASSWORD=password
+
+# Ollama LLM  
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_CHAT_MODEL=llama3.2:latest
-SQL_SERVER_HOST=localhost
-SQL_SERVER_PORT=1433
-SQL_SERVER_DATABASE=your_database
-SQL_SERVER_USERNAME=your_username
-SQL_SERVER_PASSWORD=your_password
-SQL_SERVER_DRIVER=ODBC Driver 17 for SQL Server
-TOP_K_RESULTS=5
-MIN_SIMILARITY=0.1
+
+# ChromaDB
+CHROMA_DB_DIR=chroma_db
+EMBEDDING_MODEL=all-MiniLM-L6-v2
 ```
 
-## Development Commands
+### Archivos de Configuración:
+- `bantotal_extraction_strategy.json` - Estrategia de extracción por fases
+- `enhanced_sql_metadata.json` - Metadatos enriquecidos de tablas
+- `estructura_tablas_kb_nativa_micro.json` - Mapeo de estructuras
 
-### Testing and Diagnostics
-```bash
-# System health check and troubleshooting
-python diagnose.py
+## 🚀 Optimizaciones de Performance
 
-# Database connection test
-python bantotal_config.py
+### Problemas Identificados:
+- Tiempo de respuesta: 60-76 segundos promedio
+- Búsquedas excesivas: 23 términos por consulta
+- Falta de caché para consultas repetidas
 
-# Force SQL extraction
-python force_sql_extraction.py
+### Mejoras Implementadas:
+- Reducción de términos: 23 → 10 búsquedas
+- Cache en memoria para consultas recientes
+- Búsqueda priorizada por relevancia
+- Metadatos estáticos precargados
 
-# Enable auto-extraction
-python enable_auto_sql_extraction.py
+## ✅ Instrucciones generales de trabajo
 
-# Test specific queries
-python test_joins.py
-```
+1. Primero, analiza el problema, revisa la base de código para identificar los archivos relevantes y escribe un plan usando TodoWrite.
+2. El plan debe contener una lista de tareas que puedas marcar como completadas conforme avances.
+3. Antes de comenzar a trabajar, consulta conmigo para que pueda verificar y aprobar el plan.
+4. Luego, comienza a ejecutar las tareas del plan, marcándolas como completadas a medida que las termines.
+5. En cada paso, proporciona una explicación general y clara de los cambios que realizaste.
+6. Haz cada tarea y cambio de código lo más simple posible. Evita cambios masivos. Cada cambio debe afectar la menor cantidad de código posible.
+7. Finalmente, añade una sección de revisión al final del archivo con un resumen de los cambios que realizaste y cualquier información relevante adicional.
+8. Realiza commit y push de los cambios después de cada tarea completada, siguiendo buenas prácticas en los mensajes de commit.
 
-### Data Management
-```bash
-# Re-index all documents
-python src/indexer.py --force
+---
 
-# Ingest new documents
-python src/ingestion.py
+## 🔐 Revisión de seguridad
 
-# SQL-specific ingestion
-python src/ingestion_sql.py
+Antes de confirmar cada cambio:
+- [ ] Asegurarse de que no haya datos sensibles expuestos en frontend o backend.
+- [ ] Verificar que las API estén protegidas contra accesos indebidos.
+- [ ] Revisar que los formularios tengan validación contra entradas maliciosas (XSS, SQLi).
+- [ ] No dejar claves, tokens ni secretos en el código. Usar variables de entorno.
 
-# Test SQL connection
-python src/ingestion.py --test-sql
-```
+---
 
-### Development and Debugging
-```bash
-# Run system diagnostics (comprehensive troubleshooting)
-python diagnose.py
+## 📘 Explicación de cambios
 
-# Test individual components
-python src/database_explorer.py search "table_name"
-python src/indexer.py --info
+Después de cada tarea:
+- [ ] Explica en lenguaje claro qué funcionalidad agregaste.
+- [ ] Muestra qué archivos cambiaste y por qué.
+- [ ] Enseña el flujo de cómo funciona, como si lo explicaras a un desarrollador junior.
+- [ ] Usa ejemplos simples o comentarios clave si es útil.
 
-# Performance optimization
-python scale_config.py
-```
+---
 
-## Key Design Patterns
+## 🧠 Productividad creativa
 
-### Agent Routing Logic
-The system uses pattern matching and confidence scoring to route queries:
-1. Query classification based on keyword patterns
-2. Confidence scoring for SQL vs documentation intent
-3. Mixed query handling for complex requests requiring both agents
-
-### Database Optimization
-- Bantotal-specific table prioritization (FST > FSD > FSR > FSE)
-- Batch processing for large table sets
-- Intelligent caching for frequently accessed schemas
-
-### Error Handling
-- Graceful degradation when agents are unavailable
-- Comprehensive logging for debugging
-- Automatic fallback to available agents
-
-## File Structure Context
-
-### Root Level
-- `rag.py`: Main entry point
-- `bantotal_config.py`: Bantotal-specific configuration
-- `bantotal_extraction_strategy.json`: Extraction strategy for Bantotal tables
-- `docs/`: Technical documentation corpus
-
-### Source Directory (`src/`)
-- Agent implementations and core system logic
-- ChromaDB management and indexing
-- Web interface and utilities
-
-### Data Storage
-- `chroma_db/`: Vector database storage
-- `docs/`: PDF manuals, Word documents, and technical references
-
-## Common Workflow Patterns
-
-1. **New Feature Development**: Start with `diagnose.py` to understand system state
-2. **Database Changes**: Run `bantotal_config.py` to reconfigure for new schemas
-3. **Documentation Updates**: Use `src/ingestion.py` to re-index new documents
-4. **Performance Issues**: Use `scale_config.py` for optimization
-
-## Integration Points
-
-- **Ollama**: Local LLM for query processing
-- **SQL Server**: Primary database backend
-- **ChromaDB**: Vector storage for RAG functionality
-- **Streamlit**: Web interface framework
-
-## Troubleshooting and Debugging
-
-### Common Issues and Solutions
-
-**"Module not found" errors:**
-```bash
-# Ensure running from project root
-cd /path/to/RAG_SQL_Agent
-python rag.py "your query"
-```
-
-**"Index not available" errors:**
-```bash
-# Force re-indexing
-python src/indexer.py --force
-```
-
-**SQL connection issues:**
-```bash
-# Test SQL connection
-python src/ingestion.py --test-sql
-# Check .env file configuration
-```
-
-**No results from agents:**
-```bash
-# Run comprehensive diagnostics
-python diagnose.py
-```
-
-### Development Workflow
-
-1. **Setting up development environment:**
-   - Clone repository
-   - Configure `.env` file with database connection details
-   - Run initial setup: `python rag.py --setup`
-
-2. **Adding new documents:**
-   - Add files to `docs/` directory
-   - Run ingestion: `python src/ingestion.py`
-   - Force reindex: `python src/indexer.py --force`
-
-3. **Database schema changes:**
-   - Update `.env` if needed
-   - Run SQL extraction: `python src/ingestion.py --sql-smart`
-   - Test with: `python diagnose.py`
-
-4. **Testing queries:**
-   - Use `python rag.py "test query"` for end-to-end testing
-   - Use `python diagnose.py` for component-level diagnostics
-
-### Key Files for Development
-
-- `diagnose.py`: Comprehensive system diagnostics and troubleshooting
-- `rag.py`: Main entry point with extensive help system
-- `src/agent_director.py`: Query routing and orchestration logic
-- `src/database_explorer.py`: Database introspection and table discovery
-- `src/indexer.py`: Vector database management and search
-- `bantotal_extraction_strategy.json`: Configuration for Bantotal table extraction patterns
+Mientras se espera respuesta o carga:
+- [ ] Usar el tiempo para pensar ideas nuevas (producto, contenido, negocios).
+- [ ] Reflexionar sobre lo aprendido o lo que se puede mejorar del sistema.
+- [ ] Aprovechar este chat como espacio creativo y estratégico.
+- [ ] Puedes pedirme ayuda para lluvia de ideas, validación de conceptos o simplemente organizar tus pensamientos.

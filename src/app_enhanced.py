@@ -417,19 +417,63 @@ with tab2:
                             related_tables = find_related_tables(explorer, table_for_joins)
                             
                             if related_tables:
-                                st.success(f"✅ Encontradas {len(related_tables)} tablas relacionadas")
+                                st.success(f"✅ Encontradas {len(related_tables)} tablas relacionadas usando algoritmo de primeras 9 PKs")
                                 
-                                # Mostrar tablas relacionadas
-                                with st.expander("📊 Tablas Relacionadas", expanded=True):
-                                    for table_name, table_info in related_tables.items():
+                                # Mostrar estadísticas de confianza
+                                if related_tables:
+                                    high_conf = sum(1 for info in related_tables.values() if info.get('confidence', 0) >= 0.5)
+                                    med_conf = sum(1 for info in related_tables.values() if 0.3 <= info.get('confidence', 0) < 0.5)
+                                    low_conf = sum(1 for info in related_tables.values() if info.get('confidence', 0) < 0.3)
+                                    
+                                    col1, col2, col3, col4 = st.columns(4)
+                                    col1.metric("🔥 Alta Confianza", high_conf, help="Confianza ≥ 50%")
+                                    col2.metric("🔶 Media Confianza", med_conf, help="Confianza 30-50%")
+                                    col3.metric("🔷 Baja Confianza", low_conf, help="Confianza < 30%")
+                                    col4.metric("📊 Total Tablas", len(related_tables))
+                                
+                                # Mostrar tablas relacionadas con confianza mejorada
+                                with st.expander("📊 Tablas Relacionadas (Primeras 9 PKs)", expanded=True):
+                                    # Ordenar por confianza
+                                    sorted_tables = sorted(
+                                        related_tables.items(),
+                                        key=lambda x: x[1].get('confidence', len(x[1]['common_fields'])/9.0),
+                                        reverse=True
+                                    )
+                                    
+                                    for table_name, table_info in sorted_tables:
                                         with st.container():
-                                            st.markdown(f"**{table_name}**")
+                                            # Header con confianza
+                                            confidence = table_info.get('confidence', len(table_info['common_fields'])/9.0)
+                                            match_count = table_info.get('match_count', len(table_info['common_fields']))
                                             
-                                            common_fields = [field['field'] for field in table_info['common_fields']]
-                                            st.write(f"Campos comunes: {', '.join(common_fields)}")
+                                            if confidence >= 0.5:
+                                                confidence_color = "🔥"  # Alta
+                                            elif confidence >= 0.3:
+                                                confidence_color = "🔶"  # Media  
+                                            else:
+                                                confidence_color = "🔷"  # Baja
                                             
-                                            for condition in table_info['join_conditions']:
+                                            st.markdown(f"**{confidence_color} {table_name}** - {confidence:.1%} confianza ({match_count}/9 PKs)")
+                                            
+                                            # Mostrar campos comunes con posiciones
+                                            common_fields_info = []
+                                            for field in table_info['common_fields']:
+                                                if isinstance(field, dict) and 'position' in field:
+                                                    common_fields_info.append(f"Pos{field['position']}: {field['field']}")
+                                                elif isinstance(field, dict):
+                                                    common_fields_info.append(field['field'])
+                                                else:
+                                                    common_fields_info.append(str(field))
+                                            
+                                            st.write(f"🔑 **Campos PK coincidentes:** {', '.join(common_fields_info)}")
+                                            
+                                            # Mostrar solo primeras 3 condiciones JOIN para claridad
+                                            st.write(f"🔗 **Condiciones JOIN (primeras 3 de {len(table_info['join_conditions'])}):**")
+                                            for condition in table_info['join_conditions'][:3]:
                                                 st.code(condition, language="sql")
+                                            
+                                            if len(table_info['join_conditions']) > 3:
+                                                st.caption(f"... y {len(table_info['join_conditions']) - 3} condiciones más")
                                             
                                             st.markdown("---")
                                 
@@ -440,15 +484,53 @@ with tab2:
                                     st.header("🚀 Consultas SQL Generadas")
                                     
                                     for i, query_info in enumerate(queries):
-                                        with st.expander(f"Query {i+1}: {query_info['description']}", expanded=False):
-                                            st.write(f"**Tablas:** {', '.join(query_info['tables'])}")
-                                            st.write(f"**Campos comunes:** {query_info['common_fields']}")
+                                        # Determinar color del icono según confianza
+                                        confidence = query_info.get('confidence', 0)
+                                        if confidence >= 0.7:
+                                            icon = "🔥"  # Alta confianza
+                                        elif confidence >= 0.4:
+                                            icon = "🔶"  # Media confianza
+                                        else:
+                                            icon = "🔷"  # Baja confianza
+                                        
+                                        with st.expander(f"{icon} Query {i+1}: {query_info['description']}", expanded=False):
+                                            # Métricas mejoradas con categorías
+                                            col1, col2, col3, col4 = st.columns(4)
+                                            col1.metric("📋 Tablas", len(query_info['tables']))
+                                            col2.metric("🔑 Campos PK", query_info['common_fields'])
+                                            if 'confidence' in query_info:
+                                                col3.metric("🎯 Confianza", f"{query_info['confidence']:.1%}")
+                                            if 'categories' in query_info:
+                                                categories_count = len(query_info['categories'])
+                                                col4.metric("🏢 Categorías", categories_count, help=f"Tipos: {', '.join(query_info['categories'])}")
                                             
+                                            st.write(f"**📋 Tablas involucradas:** {', '.join(query_info['tables'])}")
+                                            if 'categories' in query_info and query_info['categories']:
+                                                categories_display = []
+                                                for cat in query_info['categories']:
+                                                    cat_emoji = {
+                                                        'Bantotal_Standard': '🏦',
+                                                        'Bancaria_Personalizada': '💼', 
+                                                        'Vista': '🔍',
+                                                        'Log': '📜',
+                                                        'Temporal': '⏱️',
+                                                        'Backup': '💾'
+                                                    }.get(cat, '📊')
+                                                    categories_display.append(f"{cat_emoji} {cat}")
+                                                st.write(f"**🏢 Categorías de tablas:** {', '.join(categories_display)}")
+                                            
+                                            # Mostrar SQL con mejor formato
+                                            st.markdown("**🚀 Consulta SQL Optimizada:**")
                                             st.code(query_info['sql'], language="sql")
                                             
-                                            # Botón para copiar
-                                            if st.button(f"📋 Copiar Query {i+1}", key=f"copy_{i}"):
-                                                st.success("Query copiada al portapapeles (funcionalidad simulada)")
+                                            # Botones mejorados
+                                            col1, col2 = st.columns([1, 1])
+                                            with col1:
+                                                if st.button(f"📋 Copiar Query {i+1}", key=f"copy_{i}"):
+                                                    st.success("✅ Query copiada al portapapeles (funcionalidad simulada)")
+                                            with col2:
+                                                if st.button(f"▶️ Ejecutar Query {i+1}", key=f"exec_{i}"):
+                                                    st.info("📝 Funcionalidad de ejecución pendiente de implementar")
                             else:
                                 st.warning("❌ No se encontraron tablas relacionadas")
                         else:
