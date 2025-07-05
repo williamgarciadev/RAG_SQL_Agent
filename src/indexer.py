@@ -209,8 +209,8 @@ def prepare_documents_for_chroma(chunks: List[Dict[str, Any]]) -> tuple:
 
 def build_index(
         docs_dir: str = 'docs',
-        chunk_size: int = 800,
-        chunk_overlap: int = 200,
+        chunk_size: int = 500,
+        chunk_overlap: int = 100,
         include_urls: bool = True,
         single_url: str = None,
         force_rebuild: bool = False,

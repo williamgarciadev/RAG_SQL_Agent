@@ -153,8 +153,70 @@ class SQLAgent:
             return 'SELECT'
 
     def _extract_table_name(self, query: str) -> Optional[str]:
-        """Extraer nombre de tabla de la consulta."""
+        """Extraer nombre de tabla de la consulta con mapeo conceptual."""
         query_lower = query.lower()
+
+        # Mapeo conceptual basado en metadatos reales de Bantotal
+        CONCEPT_TO_TABLE_MAP = {
+            # Operaciones financieras
+            'pagos': ['FSD010'],           # FSD010 = Operaciones (incluye pagos)
+            'operaciones': ['FSD010'],     # FSD010 = Operaciones bancarias
+            'transacciones': ['FSD010'],   # Transacciones = Operaciones
+            
+            # Operaciones a plazo
+            'plazos': ['FSD601'],          # FSD601 = Op. a Plazo
+            'depositos': ['FSD601'],       # Depósitos a plazo
+            'inversiones': ['FSD601'],     # Inversiones a plazo
+            
+            # Clientes y personas
+            'clientes': ['FST002', 'FST003'],
+            'abonados': ['FST002', 'FST003'],
+            'usuarios': ['FST002', 'FST003'],
+            'personas': ['FST002', 'FST003', 'FST023'],  # FST023 = Género personas
+            
+            # Estructura organizacional
+            'sucursales': ['FST001'],      # FST001 = Sucursales
+            'cuentas': ['FST001', 'FST002'],
+            
+            # Productos y servicios
+            'productos': ['FST023', 'FST024'],
+            'servicios': ['FST023'],       # Servicios = productos
+            'genero': ['FST023'],          # FST023 = Género de Personas Físicas
+        }
+        
+        # Mapeo por descripción de tabla (desde enhanced_sql_metadata.json)
+        TABLE_DESCRIPTIONS = {
+            'FSD010': 'Operaciones',
+            'FSD601': 'Op. a Plazo', 
+            'FST001': 'Sucursales',
+            'FST023': 'Género de Personas Físicas'
+        }
+
+        # Patrones Bantotal específicos
+        bantotal_patterns = [
+            r'(FS[TSRDEXAHIMN]\d+)',  # Cualquier tabla Bantotal
+            r'(FSD\d+)',              # Datos
+            r'(FST\d+)',              # Tablas básicas
+            r'(FSR\d+)',              # Relaciones
+            r'(FSE\d+)',              # Extensiones
+        ]
+
+        # Primero buscar patrones Bantotal específicos
+        for pattern in bantotal_patterns:
+            match = re.search(pattern, query_lower.upper())
+            if match:
+                return match.group(1)
+
+        # Buscar conceptos conocidos por palabra clave
+        for concept, tables in CONCEPT_TO_TABLE_MAP.items():
+            if concept in query_lower:
+                # Retornar la tabla principal (primera del mapeo)
+                return tables[0]
+        
+        # Buscar por descripción semántica de tabla
+        for table_code, description in TABLE_DESCRIPTIONS.items():
+            if any(word in query_lower for word in description.lower().split()):
+                return table_code
 
         # Patrones comunes para extraer tabla
         table_patterns = [
@@ -175,85 +237,235 @@ class SQLAgent:
         for pattern in table_patterns:
             match = re.search(pattern, query_lower)
             if match:
-                return match.group(1)
+                extracted = match.group(1)
+                # Verificar si es un concepto conocido
+                if extracted in CONCEPT_TO_TABLE_MAP:
+                    return CONCEPT_TO_TABLE_MAP[extracted][0]
+                return extracted
 
         return None
 
     def _retrieve_sql_context(self, query: str) -> List[Dict[str, Any]]:
-        """Recuperar contexto específico para SQL."""
+        """Recuperar contexto específico para SQL con filtros mejorados."""
         try:
             # Inicializar ChromaDB si es necesario
             initialize_chroma_client()
 
-            # Búsqueda específica para estructuras de tablas
-            search_terms = []
-
             # Extraer tabla mencionada
             table_name = self._extract_table_name(query)
-            if table_name:
-                search_terms.append(f"tabla {table_name}")
-                search_terms.append(f"structure {table_name}")
-                search_terms.append(f"campos {table_name}")
+            
+            # Generar términos de búsqueda mejorados
+            search_terms = self._generate_enhanced_search_terms(query, table_name)
 
-            # Búsqueda por tipo de operación
-            operation = self._detect_sql_operation(query)
-            search_terms.append(f"SQL {operation}")
-            search_terms.append(f"query {operation}")
+            # Filtros específicos para metadatos de base de datos
+            db_filter = {
+                'source_type': 'database'
+            }
 
-            # Buscar documentos relevantes
+            # Buscar documentos relevantes con filtros específicos
             all_results = []
             for term in search_terms:
                 try:
-                    # Intentar primero con filtros de metadatos
+                    # Búsqueda con filtros de base de datos
                     results = search_index(
                         query=term,
                         top_k=TOP_K_RESULTS,
-                        filter_metadata=None  # Temporalmente sin filtros para evitar errores
+                        filter_metadata=db_filter
                     )
                     all_results.extend(results)
                 except Exception as e:
-                    logger.warning(f"⚠️ Error buscando '{term}': {e}")
-                    # Continuar con el siguiente término
+                    logger.warning(f"⚠️ Error buscando con filtros '{term}': {e}")
+                    # Intentar sin filtros como fallback
+                    try:
+                        results = search_index(
+                            query=term,
+                            top_k=TOP_K_RESULTS,
+                            filter_metadata=None
+                        )
+                        all_results.extend(results)
+                    except Exception as e2:
+                        logger.warning(f"⚠️ Error búsqueda fallback '{term}': {e2}")
 
-            # Si no hay resultados específicos de tablas, buscar en general
+            # Si no hay resultados específicos, búsqueda semántica amplia
             if not all_results:
                 try:
-                    results = search_index(query=query, top_k=TOP_K_RESULTS)
+                    semantic_query = self._build_semantic_query(query, table_name)
+                    results = search_index(query=semantic_query, top_k=TOP_K_RESULTS * 2)
                     all_results.extend(results)
                 except Exception as e:
-                    logger.error(f"❌ Error en búsqueda general: {e}")
+                    logger.error(f"❌ Error en búsqueda semántica: {e}")
 
-            # Filtrar manualmente por tipo de fuente SQL si es necesario
-            if all_results:
-                sql_results = []
-                for result in all_results:
-                    metadata = result.get('metadata', {})
-                    source_type = metadata.get('source_type', '')
+            # Filtrar y rankear resultados
+            filtered_results = self._filter_and_rank_results(all_results, table_name)
 
-                    # Filtrar para incluir solo documentos SQL
-                    if source_type in ['database_table', 'database_schema', 'database']:
-                        sql_results.append(result)
-
-                # Si hay resultados SQL específicos, usarlos; sino usar todos
-                all_results = sql_results if sql_results else all_results
-
-            # Filtrar y deduplicar
-            unique_results = []
-            seen_ids = set()
-            for result in all_results:
-                if result.get('id') not in seen_ids and result.get('similarity', 0) >= MIN_SIMILARITY:
-                    seen_ids.add(result.get('id'))
-                    unique_results.append(result)
-
-            # Ordenar por similitud
-            unique_results.sort(key=lambda x: x.get('similarity', 0), reverse=True)
-
-            logger.info(f"📋 Recuperados {len(unique_results)} documentos SQL relevantes")
-            return unique_results[:TOP_K_RESULTS]
+            logger.info(f"📋 Recuperados {len(filtered_results)} documentos SQL relevantes")
+            return filtered_results
 
         except Exception as e:
             logger.error(f"❌ Error en recuperación SQL: {e}")
             return []
+
+    def _generate_enhanced_search_terms(self, query: str, table_name: Optional[str]) -> List[str]:
+        """Generar términos de búsqueda mejorados con metadatos."""
+        search_terms = []
+        
+        if table_name:
+            # Términos específicos de tabla
+            search_terms.extend([
+                f"tabla {table_name}",
+                f"structure {table_name}",
+                f"campos {table_name}",
+                f"schema {table_name}",
+                f"CREATE TABLE {table_name}",
+                table_name  # Nombre directo
+            ])
+            
+            # Agregar descripción de tabla si existe
+            TABLE_DESCRIPTIONS = {
+                'FSD010': 'Operaciones',
+                'FSD601': 'Op. a Plazo', 
+                'FST001': 'Sucursales',
+                'FST023': 'Género de Personas Físicas'
+            }
+            
+            if table_name in TABLE_DESCRIPTIONS:
+                description = TABLE_DESCRIPTIONS[table_name]
+                search_terms.extend([
+                    f"{table_name} {description}",
+                    f"tabla {description}",
+                    description.lower()
+                ])
+            
+            # Si es tabla Bantotal, agregar términos específicos
+            if table_name.upper().startswith('FS'):
+                # Determinar tipo de tabla por prefijo
+                prefix = table_name.upper()[:3]
+                table_type_terms = {
+                    'FST': 'tablas básicas',
+                    'FSD': 'datos operacionales', 
+                    'FSR': 'relaciones',
+                    'FSE': 'extensiones'
+                }
+                
+                if prefix in table_type_terms:
+                    search_terms.append(f"{table_name} {table_type_terms[prefix]}")
+                
+                search_terms.extend([
+                    f"Bantotal {table_name}",
+                    f"ERP {table_name}",
+                    f"banking {table_name}"
+                ])
+
+        # Términos por operación
+        operation = self._detect_sql_operation(query)
+        search_terms.extend([
+            f"SQL {operation}",
+            f"query {operation}",
+            f"statement {operation}"
+        ])
+
+        # Términos semánticos del dominio bancario
+        banking_terms = [
+            "database schema",
+            "table structure", 
+            "banking database",
+            "SQL Server",
+            "Bantotal tables",
+            "sistema bancario",
+            "metadatos enhanced"
+        ]
+        search_terms.extend(banking_terms)
+
+        return search_terms
+
+    def _build_semantic_query(self, query: str, table_name: Optional[str]) -> str:
+        """Construir consulta semántica enriquecida con metadatos."""
+        semantic_parts = []
+        
+        if table_name:
+            semantic_parts.append(f"tabla base de datos {table_name}")
+            
+            # Agregar descripción semántica
+            TABLE_DESCRIPTIONS = {
+                'FSD010': 'Operaciones',
+                'FSD601': 'Op. a Plazo', 
+                'FST001': 'Sucursales',
+                'FST023': 'Género de Personas Físicas'
+            }
+            
+            if table_name in TABLE_DESCRIPTIONS:
+                semantic_parts.append(TABLE_DESCRIPTIONS[table_name])
+        
+        operation = self._detect_sql_operation(query)
+        semantic_parts.append(f"consulta {operation} SQL")
+        
+        # Clasificar contexto bancario por términos clave
+        banking_contexts = {
+            ['pago', 'pagos', 'cobro']: 'operaciones bancarias pagos',
+            ['cliente', 'abonado', 'usuario']: 'clientes personas', 
+            ['cuenta', 'servicio', 'producto']: 'productos servicios',
+            ['sucursal', 'oficina']: 'estructura organizacional',
+            ['plazo', 'deposito', 'inversion']: 'operaciones plazo financiero',
+            ['operacion', 'transaccion']: 'operaciones transaccionales'
+        }
+        
+        query_lower = query.lower()
+        for terms, context in banking_contexts.items():
+            if any(term in query_lower for term in terms):
+                semantic_parts.append(context)
+                break
+        
+        # Agregar metadatos enriquecidos
+        semantic_parts.extend([
+            "estructura esquema metadatos",
+            "enhanced metadata Bantotal",
+            "foreign keys constraints"
+        ])
+        
+        return " ".join(semantic_parts)
+
+    def _filter_and_rank_results(self, results: List[Dict[str, Any]], table_name: Optional[str]) -> List[Dict[str, Any]]:
+        """Filtrar y rankear resultados por relevancia."""
+        if not results:
+            return []
+
+        # Filtrar por similitud mínima
+        filtered = [r for r in results if r.get('similarity', 0) >= MIN_SIMILARITY]
+        
+        # Deduplicar por ID
+        unique_results = []
+        seen_ids = set()
+        for result in filtered:
+            result_id = result.get('id')
+            if result_id not in seen_ids:
+                seen_ids.add(result_id)
+                unique_results.append(result)
+
+        # Scoring mejorado por relevancia
+        scored_results = []
+        for result in unique_results:
+            score = result.get('similarity', 0)
+            metadata = result.get('metadata', {})
+            
+            # Boost para fuentes de base de datos
+            if metadata.get('source_type') in ['database', 'database_table', 'database_schema']:
+                score *= 1.5
+            
+            # Boost para tabla específica
+            if table_name and table_name.lower() in result.get('text', '').lower():
+                score *= 1.3
+            
+            # Boost para contenido Bantotal
+            if any(term in result.get('text', '').upper() for term in ['FST', 'FSD', 'FSR', 'BANTOTAL']):
+                score *= 1.2
+            
+            result['relevance_score'] = score
+            scored_results.append(result)
+
+        # Ordenar por score de relevancia
+        scored_results.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+        
+        return scored_results[:TOP_K_RESULTS]
 
     def _get_table_structure_from_explorer(self, table_name: str) -> Optional[Dict]:
         """Obtener estructura de tabla usando DatabaseExplorer."""
@@ -293,48 +505,127 @@ class SQLAgent:
 
         # Extraer tabla objetivo
         target_table = self._extract_table_name(query)
+        
+        # Metadatos de enhanced_sql_metadata.json
+        enhanced_metadata = self._get_enhanced_metadata(target_table)
+        
+        if target_table:
+            context_parts.append(f"\n🎯 TABLA OBJETIVO: {target_table}")
+            
+            # Información enriquecida si está disponible
+            if enhanced_metadata:
+                context_parts.append(f"📝 DESCRIPCIÓN: {enhanced_metadata.get('description', 'N/A')}")
+                context_parts.append(f"📊 TOTAL CAMPOS: {enhanced_metadata.get('column_count', 'N/A')}")
+                context_parts.append(f"🔑 FOREIGN KEYS: {enhanced_metadata.get('foreign_keys_count', 0)}")
+                context_parts.append(f"📈 ÍNDICES: {enhanced_metadata.get('indexes_count', 0)}")
+                
+                # Campos con descripciones mejoradas
+                if enhanced_metadata.get('sample_fields'):
+                    context_parts.append("\n📊 CAMPOS PRINCIPALES CON DESCRIPCIONES:")
+                    for field in enhanced_metadata['sample_fields'][:10]:  # Primeros 10
+                        pk_marker = " 🔑" if field.get('is_primary_key') == 'YES' else ""
+                        description = field.get('description', '')
+                        desc_text = f" - {description}" if description else ""
+                        context_parts.append(
+                            f"  • {field['name']}: {field['full_type']}{pk_marker}{desc_text}"
+                        )
+            
+            # Estructura desde DatabaseExplorer como fallback
+            if self.explorer:
+                structure = self._get_table_structure_from_explorer(target_table)
+                if structure and not enhanced_metadata:
+                    context_parts.append(f"\n🏢 ESTRUCTURA DESDE BD: {structure['full_name']}")
+                    context_parts.append(f"Total campos: {structure['column_count']}")
+                    
+                    # Claves primarias
+                    if structure['primary_keys']:
+                        context_parts.append(f"\n🔑 CLAVES PRIMARIAS: {', '.join(structure['primary_keys'])}")
+                    
+                    # Claves foráneas
+                    foreign_keys = structure.get('foreign_keys', [])
+                    if foreign_keys:
+                        context_parts.append("\n🔗 CLAVES FORÁNEAS:")
+                        for fk in foreign_keys[:5]:  # Solo primeras 5
+                            context_parts.append(
+                                f"  • {fk['column_name']} → {fk['referenced_table']}.{fk['referenced_column']}"
+                            )
+            
+            context_parts.append("\n" + "=" * 60 + "\n")
 
-        if target_table and self.explorer:
-            # Intentar obtener estructura exacta
-            structure = self._get_table_structure_from_explorer(target_table)
-            if structure:
-                context_parts.append(f"ESTRUCTURA EXACTA DE TABLA {structure['full_name']}:")
-                context_parts.append(f"Total campos: {structure['column_count']}")
-
-                # Campos con detalles
-                context_parts.append("\nCAMPOS DISPONIBLES:")
-                for col in structure['columns']:
-                    key_info = " [PK]" if col['is_primary_key'] == 'YES' else ""
-                    nullable = " NULL" if col['is_nullable'] == 'YES' else " NOT NULL"
-                    context_parts.append(f"- {col['name']}: {col['full_type']}{nullable}{key_info}")
-
-                # Claves primarias
-                if structure['primary_keys']:
-                    context_parts.append(f"\nCLAVES PRIMARIAS: {', '.join(structure['primary_keys'])}")
-
-                # Claves foráneas
-                foreign_keys = structure.get('foreign_keys', [])
-                if foreign_keys:
-                    context_parts.append("\nCLAVES FORÁNEAS:")
-                    for fk in foreign_keys:
-                        context_parts.append(f"- {fk['column_name']} → {fk['referenced_schema']}.{fk['referenced_table']}.{fk['referenced_column']}")
-
-                context_parts.append("\n" + "=" * 50 + "\n")
-
-        # Agregar documentos recuperados como contexto adicional
-        for i, doc in enumerate(documents, 1):
+        # Contexto de documentos relevantes (más conciso)
+        context_parts.append("📚 DOCUMENTOS DE REFERENCIA:")
+        for i, doc in enumerate(documents[:3], 1):  # Solo primeros 3
             metadata = doc.get('metadata', {})
             source = metadata.get('source', 'Fuente desconocida')
             similarity = doc.get('similarity', 0)
+            source_type = metadata.get('source_type', 'unknown')
+            
+            # Extraer fragmento relevante
+            text_content = doc.get('text', '')[:400]
+            
+            context_parts.append(f"\n{i}. 📄 {Path(source).name if 'file' in str(source) else source}")
+            context_parts.append(f"   Tipo: {source_type} | Relevancia: {similarity:.3f}")
+            context_parts.append(f"   Contenido: {text_content}...")
 
-            doc_info = f"\n--- DOCUMENTO ADICIONAL {i} ---"
-            doc_info += f"\nFuente: {Path(source).name if 'file' in str(source) else source}"
-            doc_info += f"\nRelevancia: {similarity:.3f}"
-            doc_info += f"\nContenido:\n{doc.get('text', '')[:600]}..."
-
-            context_parts.append(doc_info)
-
-        return "".join(context_parts)
+        return "\n".join(context_parts)
+    
+    def _get_enhanced_metadata(self, table_name: Optional[str]) -> Optional[Dict[str, Any]]:
+        """Obtener metadatos enriquecidos de enhanced_sql_metadata.json."""
+        if not table_name:
+            return None
+            
+        # Metadatos estáticos desde el JSON (podría cargarse dinámicamente)
+        enhanced_tables = {
+            'FST001': {
+                'description': 'Sucursales',
+                'column_count': 12,
+                'foreign_keys_count': 2,
+                'indexes_count': 2,
+                'sample_fields': [
+                    {'name': 'Pgcod', 'full_type': 'smallint', 'is_primary_key': 'YES', 'description': 'Código Empresa'},
+                    {'name': 'Sucurs', 'full_type': 'int', 'is_primary_key': 'YES', 'description': 'Código Sucursal'},
+                    {'name': 'Scnom', 'full_type': 'char(30)', 'is_primary_key': 'NO', 'description': 'Nombre Sucursal'},
+                ]
+            },
+            'FST023': {
+                'description': 'Género de Personas Físicas',
+                'column_count': 4,
+                'foreign_keys_count': 0, 
+                'indexes_count': 1,
+                'sample_fields': [
+                    {'name': 'FST023Cod', 'full_type': 'char(1)', 'is_primary_key': 'YES', 'description': 'Código de Identidad de Género'},
+                    {'name': 'FST023Dsc', 'full_type': 'char(20)', 'is_primary_key': 'NO', 'description': 'Descripción de Identidad de Género'},
+                ]
+            },
+            'FSD010': {
+                'description': 'Operaciones Bancarias',
+                'column_count': 45,
+                'foreign_keys_count': 13,
+                'indexes_count': 10,
+                'sample_fields': [
+                    {'name': 'Pgcod', 'full_type': 'smallint', 'is_primary_key': 'YES', 'description': 'Código Empresa'},
+                    {'name': 'Aomod', 'full_type': 'int', 'is_primary_key': 'YES', 'description': 'Módulo'},
+                    {'name': 'Aosuc', 'full_type': 'int', 'is_primary_key': 'YES', 'description': 'Sucursal'},
+                    {'name': 'Aomda', 'full_type': 'smallint', 'is_primary_key': 'YES', 'description': 'Moneda'},
+                    {'name': 'Aopap', 'full_type': 'int', 'is_primary_key': 'YES', 'description': 'Papel'},
+                ]
+            },
+            'FSD601': {
+                'description': 'Operaciones a Plazo',
+                'column_count': 31,
+                'foreign_keys_count': 11,
+                'indexes_count': 10,
+                'sample_fields': [
+                    {'name': 'Pgcod', 'full_type': 'smallint', 'is_primary_key': 'YES', 'description': 'Código Empresa'},
+                    {'name': 'Ppmod', 'full_type': 'int', 'is_primary_key': 'YES', 'description': 'Módulo'},
+                    {'name': 'Ppsuc', 'full_type': 'int', 'is_primary_key': 'YES', 'description': 'Sucursal'},
+                    {'name': 'Ppmda', 'full_type': 'smallint', 'is_primary_key': 'YES', 'description': 'Moneda'},
+                    {'name': 'Pppap', 'full_type': 'int', 'is_primary_key': 'YES', 'description': 'Papel'},
+                ]
+            }
+        }
+        
+        return enhanced_tables.get(table_name.upper())
 
     def _generate_sql_prompt(self, query: str, context: str, operation: str) -> str:
         """Generar prompt especializado para SQL."""

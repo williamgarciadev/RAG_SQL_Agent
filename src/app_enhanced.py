@@ -71,13 +71,19 @@ st.markdown("""
 # Importaciones de módulos
 @st.cache_resource
 def load_database_explorer():
-    """Cargar el explorador de base de datos"""
+    """Cargar el explorador de base de datos mejorado"""
     try:
-        from database_explorer import DatabaseExplorer
+        from database_explorer_pymssql import DatabaseExplorer
         return DatabaseExplorer()
     except ImportError:
-        st.error("❌ No se pudo cargar DatabaseExplorer")
-        return None
+        # Fallback al explorador genérico
+        try:
+            from database_explorer import DatabaseExplorer
+            st.warning("⚠️ Usando explorador genérico - algunas funciones limitadas")
+            return DatabaseExplorer()
+        except ImportError:
+            st.error("❌ No se pudo cargar ningún DatabaseExplorer")
+            return None
 
 @st.cache_resource
 def load_rag_director():
